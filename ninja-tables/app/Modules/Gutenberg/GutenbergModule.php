@@ -37,7 +37,7 @@ class GutenbergModule
                 'preview_required_scripts' => array(
                     $assets . "css/ninjatables-public.css",
                     $assets . "css/ninja-table-builder-public.css",
-                    $assets . "libs/moment/moment.min.js",
+                    includes_url('/js/dist/vendor/moment.min.js'),
                     $assets . "libs/footable/js/footable.min.js",
                     $assets . "js/ninja-tables-footable.js",
 //                    $assets . "js/ninja-table-builder-public.js",
@@ -75,7 +75,7 @@ class GutenbergModule
 
         $title = __('Select a Table', 'ninja-tables');
         if (!$tables) {
-            $title = __('No Tables found. Please add a table first');
+            $title = __('No Tables found. Please add a table first', 'ninja-tables');
         }
         $formatted[] = array(
             'label' => $title,
@@ -128,6 +128,19 @@ class GutenbergModule
             $tablePreference = ninja_tables_sanitize_array($tableSettings);
         }
 
-        Post::updatedSettings($tableId, $rawColumns, $tablePreference);
+        if (!empty($tablePreference['sorting_column_by'])) {
+            $direction = strtoupper($tablePreference['sorting_column_by']);
+            if (!in_array($direction, ['ASC', 'DESC'], true)) {
+                $tablePreference['sorting_column_by'] = 'DESC';
+            }
+        }
+
+        if (!empty($tablePreference['sorting_column'])) {
+            $tablePreference['sorting_column'] = sanitize_key($tablePreference['sorting_column']);
+        }
+
+        $mergedSettings = wp_parse_args($tablePreference, ninjaTablesGetDefaultSettings());
+
+        Post::updatedSettings($tableId, $rawColumns, $mergedSettings);
     }
 }

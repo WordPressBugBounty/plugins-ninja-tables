@@ -3,8 +3,8 @@ Contributors: wpmanageninja, techjewel, adreastrian, heera
 Tags: Table, table builder, datatable, tables, spreadsheet
 Requires at least: 6.0
 Requires PHP: 7.4
-Tested up to: 6.8
-Stable tag: 5.2.2
+Tested up to: 6.9
+Stable tag: 5.2.7
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -15,7 +15,7 @@ Best WordPress table builder plugin packed with versatile features to create ful
 == Description ==
 
 
-[Website](https://ninjatables.com/) | [Playlist](https://www.youtube.com/playlist?list=PLXpD0vT4thWGhHDY0X7UpN9JoR0vu2O_C) | [Templates](https://ninjatables.com/free-table-templates/) | [Demo](https://ninjatables.com/demo/) | [User Guide](https://ninjatables.com/docs/)
+[Website](https://ninjatables.com/) | [Playlist](https://youtube.com/playlist?list=PLXpD0vT4thWGYSCX6fOf7o0eTS9EtU0oK&si=o0Hvq6LJDHkr3g12) | [Templates](https://ninjatables.com/free-table-templates/) | [Demo](https://ninjatables.com/demo/) | [User Guide](https://ninjatables.com/docs/)
 
 
 **Ninja Tables** is a feature-rich WordPress table plugin that provides all the solutions you need to create almost any type of WordPress table within minutes—all without writing a single line of code.
@@ -24,7 +24,7 @@ Best WordPress table builder plugin packed with versatile features to create ful
 You can build any table, customize it however you want, and embed it anywhere on your website with a simple shortcode. Ninja Tables can make any filterable and interactive table for any amount of data.
 
 
-9 table creation options, 2 table modes – Advanced (Classic) and Simple (Basic)- Drag-and-drop, 100+ table styles, 30+ free table templates, and unlimited customization controls.
+11 table creation options, 2 table modes – Advanced (Classic) and Simple (Basic)- Drag-and-drop, 100+ table styles, 50+ free table templates, and unlimited customization controls.
 
 
 Check out the [feature page.](https://ninjatables.com/features/)
@@ -44,7 +44,7 @@ Some of the tables Ninja Tables creates for you:
 – Pricing table
 – Product comparison table
 – Academic tables
-– Sports info or league table
+– Sports points or league table
 – Posts table
 – Employee statistics table
 – Book review table
@@ -69,6 +69,8 @@ Creating tables is super easy with Ninja Tables. Pick from multiple table creati
 – Connect Fluent Forms
 – WP Posts
 – WooCommerce Table
+- WooCommerce Reviews **[NEW]**
+- FluentCart Table **[NEW]**
 – Connect Google Sheets
 – Connect External CSV
 – Custom SQL Query
@@ -88,6 +90,7 @@ Here is a short list of features to create tables:
 
 – Unlimited data
 – Drag and drop table builder
+- FluentCart tables
 – Pre-made templates
 – Table design customization
 – Table colors
@@ -103,6 +106,7 @@ The **Premium version** comes with a lot more advanced features:
 
 – Google Sheets integration
 – WooCommerce integration
+- WooCommerce Reviews table
 – WP Posts / Any Custom Post Type Integration
 – Multimedia support
 – Conditional Formatting
@@ -187,7 +191,7 @@ When you have to migrate your tables from other table builder plugins, Ninja Tab
 
 
 ### Free Table Templates
-Ninja Tables makes sure to save your time and energy. To give you more flexibility and ease in creating tables, Ninja Tables provides 30+ customizable free **table templates.**
+Ninja Tables makes sure to save your time and energy. To give you more flexibility and ease in creating tables, Ninja Tables provides 50+ customizable free **table templates.**
 
 
 For easy and quick table creation, it’s the perfect solution.
@@ -211,6 +215,9 @@ Add Fluent Forms entries to your tables effortlessly by connecting Fluent Forms 
 
 <iframe width="611" height="360" src="https://www.youtube.com/embed/uMVnTYnKWM4" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
+### FluentCart Table [NEW]
+You can integrate Ninja Tables with FluentCart and display all your products in styled and customized tables. This integration is available in both free and pro versions of Ninja Tables.
+
 
 ### Charts and Graphs
 Ninja Tables deep integration with **[Ninja Charts](https://wordpress.org/plugins/ninja-charts/)** enables you to create and display dynamic charts and graphs on your website within minutes! This integration is totally free and Ninja Charts works as a standalone plugin as well.
@@ -229,7 +236,7 @@ and many more.
 
 
 ### Table Colors
-Predefined color schemes and Custom color palette – Ninja Tables Advanced Mode gives you the freedom to color customize your tables how you want. The predefined color scheme (Free) has a 10+ fixed palette and the custom colors (Pro) feature lets you have fun with all the colors.
+Predefined color schemes and Custom color palette - Ninja Tables Advanced Mode gives you the freedom to color customize your tables how you want. The predefined color scheme has a 10+ fixed palette and the custom colors feature lets you have fun with all the colors.
 
 
 Coloring table cells in drag-and-drop mode is completely free.
@@ -280,7 +287,7 @@ Hands-on tutorials and instructions on how to create WordPress tables easily wit
 
 
 – [Quick table creation with free table templates](https://ninjatables.com/free-table-templates/)
-– [9 simple ways to create tables](https://ninjatables.com/ways-to-create-a-table-online-wordpress-tables/) with Ninja Tables
+– [10+ simple ways to create tables](https://ninjatables.com/ways-to-create-a-table-online-wordpress-tables/) with Ninja Tables
 – [Drag and Drop tables](https://ninjatables.com/a-beginners-guide-to-ninja-tables-drag-and-drop-table-builder/) beginner’s guide
 – Ninja Tables [integrations](https://ninjatables.com/ninja-tables-integration-with-other-plugins/) for your WordPress website
 – Ninja Tables [WooCommerce product tables](https://ninjatables.com/how-to-integrate-woocommerce-with-ninja-tables/)
@@ -325,8 +332,16 @@ After Installation **Activate** the plugin from the plugin dashboard.
 
 To know more, browse our [documentation](https://ninjatables.com/docs/). For blogs and facts, visit our [blog](https://ninjatables.com/blog/) page.
 
+== Contribute and translate ==
+
+Ninja Tables is developed and maintained by [WPManageNinja](https://wpmanageninja.com/), the creators of [Ninja Tables](https://ninjatables.com/), FluentCart, Fluent Forms, FluentCRM, Wp Social Ninja and More. We welcome community contributions — visit our [GitHub Repository](https://github.com/WPManageNinja/ninja-tables-develop) to get involved.
+
+Help translate Ninja Tables and make it accessible worldwide at [translate.wordpress.org](https://translate.wordpress.org/projects/wp-plugins/ninja-tables/).
 
 == Frequently Asked Questions ==
+
+= Can I create FluentCart product tables with Ninja Tables? =
+Yes, you can create FluentCart product tables with Ninja Tables. It’s free integration and all you need is products in FluentCart and connect your handpicked products to Ninja Tables.
 
 
 = Is Ninja Tables responsive? =
@@ -405,6 +420,50 @@ Ninja Tables [customer support](https://wpmanageninja.com/support-tickets/#/) te
 
 == Changelog ==
 We released several updates for Ninja Tables in the years of development. These include improvements to the existing features and some wonderful additions to help you design tables more effectively.
+
+= 5.2.7 (Date: February 04, 2026) =
+* Security: Improved permissions for FluentCart table creation
+
+= 5.2.6 (Date: January 27, 2026) =
+ * Added: Bulk delete for tables
+ * Added: Trash and restore tables
+ * Added: Single-row modal view
+ * Added: Click to copy cell Content
+ * Fixed: Print issues with conditional formatting
+ * Fixed: Print issues with responsive breakpoints
+ * Fixed: FluentForm payment form warnings
+ * Fixed: FluentCart permalink issues
+ * Fixed: Drag & drop color picker issue
+ * Security: Limited ninja_table_info & ninja_table_cell access to public posts.
+
+= 5.2.5 (Date: December 17, 2025) =
+ • Security: Improved OrderBy sanitization to prevent SQL injection.
+
+= 5.2.4 (Date: November 27, 2025) =
+ • Security: Improved REST API sanitization to prevent SQL injection.
+ • Improve: Stock visibility in FluentCart table
+
+= 5.2.3 (Date: November 11, 2025) =
+ • Added: Fluent Cart Product Table integration
+ • Added: WooCommerce Reviews table integration
+ • Added: WooCommerce average rating in products table
+ • Added: Separate progress bar & progress bar text color options
+ • Added: Vietnamese translation support
+ • Fixes: WooCommerce multiple attributes variations duplicate issue
+ • Fixes: WooCommerce products comparison in stackable table
+ • Fixes: WooCommerce table theme conflict
+ • Fixes: WooCommerce dynamic column post meta display issue
+ • Fixes: Post table conditions date filter issue
+ • Fixes: Image clickable issue when no link is provided in drag & drop
+ • Fixes: Button hover issue on drag & drop
+ • Fixes: Fluent forms table Optional conditions issue
+ • Fixes: Progress bar style issue
+ • Improve: Excel formula support
+ • Improve: Single cart button action from table
+ • Improve: Pagination style in WooCommerce table
+ • Improve: Text-domains & data escaping
+ • Improve: WooCommerce bulk operations
+ • Tested: Full plugin via Plugin Check(PCP)
 
 = 5.2.2 (Date: August 01, 2025) =
  * Fixes: Google Sheets data data fetching issue

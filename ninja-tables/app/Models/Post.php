@@ -14,9 +14,11 @@ class Post extends Model
     {
         $orderByes = ['ID', 'post_title'];
         $orderBy   = Arr::get($args, 'orderby', 'ID');
+        $postStatus = Arr::get($args, 'post_status', 'publish');
         $orderBy   = in_array($orderBy, $orderByes) ? $orderBy : 'ID';
 
         $posts = Post::where('post_type', self::$cptName)
+                     ->where('post_status', $postStatus)
                      ->where(function ($query) use ($args) {
                          if (isset($args['s'])) {
                              $query->where('post_title', 'like', '%' . $args['s'] . '%')
@@ -25,7 +27,10 @@ class Post extends Model
                          }
                      });
         $total = $posts->count();
-        $posts = $posts->orderBy($orderBy, $args['order'])
+        $orderByType = Arr::get($args, 'order');
+        $orderByType = in_array(strtoupper($orderByType), ['ASC', 'DESC']) ? $orderByType : 'DESC';
+
+        $posts = $posts->orderBy($orderBy, $orderByType)
                        ->skip($args['offset'])
                        ->take($args['posts_per_page'])
                        ->get();
@@ -79,7 +84,7 @@ class Post extends Model
             wp_update_post($attributes);
         }
         update_post_meta($postId, '_last_edited_by', get_current_user_id());
-        update_post_meta($postId, '_last_edited_time', date('Y-m-d H:i:s'));
+        update_post_meta($postId, '_last_edited_time', gmdate('Y-m-d H:i:s'));
 
         return $postId;
     }
@@ -87,12 +92,7 @@ class Post extends Model
     public static function destroyTable($tableId)
     {
         wp_delete_post($tableId, true);
-        // Delete the post metas
-        delete_post_meta($tableId, '_ninja_table_columns');
-        delete_post_meta($tableId, '_ninja_table_settings');
-        delete_post_meta($tableId, '_ninja_table_cache_object');
 
-        // Delete the table items
         NinjaTableItem::where('table_id', $tableId)->delete();
     }
 
@@ -116,7 +116,7 @@ class Post extends Model
         $sql .= " SELECT `position`, $newPostId, `owner_id`, `settings`, `attribute`, `value`, `created_at`, `updated_at` FROM $itemsTable";
         $sql .= " WHERE `table_id` = $oldPostId";
 
-        $wpdb->query($sql);
+        $wpdb->query($sql); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.PreparedSQL.NotPrepared
     }
 
     public static function updatedSettings($tableId, $rawColumns, $tablePreference)
@@ -129,7 +129,7 @@ class Post extends Model
                 update_post_meta($tableId, '_ninja_table_columns', $tableColumns);
                 if ($provider === 'default') {
                     NinjaTableItem::where('table_id', $tableId)->delete();
-                } 
+                }
         } elseif (is_array($rawColumns) && ! empty($rawColumns)) {
             foreach ($rawColumns as $column) {
                 foreach ($column as $column_index => $column_value) {
@@ -167,7 +167,7 @@ class Post extends Model
         ninjaTablesClearTableDataCache($tableId);
 
         update_post_meta($tableId, '_last_edited_by', get_current_user_id());
-        update_post_meta($tableId, '_last_edited_time', date('Y-m-d H:i:s'));
+        update_post_meta($tableId, '_last_edited_time', gmdate('Y-m-d H:i:s'));
 
         return [
             'message'  => __('Successfully updated configuration.', 'ninja-tables'),

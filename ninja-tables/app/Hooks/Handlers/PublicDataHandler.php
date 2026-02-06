@@ -55,7 +55,7 @@ class PublicDataHandler
         $tableArray = apply_filters('ninja_table_js_config', $tableArray, $shortCodeData['filter']);
 
         if (defined('LSCWP_V')) {
-            do_action('litespeed_tag_add', 'ninja_tables_light_speed_clear_cache');
+            do_action('litespeed_tag_add', 'ninja_tables_light_speed_clear_cache'); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound
         }
 
         ob_start();
@@ -86,8 +86,9 @@ class PublicDataHandler
 
         $id = absint($id);
         $table = get_post($id);
-        if (!$table) {
-            return;
+
+        if (!$table || $table->post_type !== 'ninja-table' || $table->post_status !== 'publish') {
+            return 'Error: Invalid table ID.';
         }
 
         $validFields = [
@@ -169,6 +170,11 @@ class PublicDataHandler
         }
 
         $id = absint($id);
+
+        if (get_post_type($id) !== 'ninja-table' || get_post_status($id) !== 'publish') {
+            return 'Sorry! The table is not available.';
+        }
+
         $tableSettings = ninja_table_get_table_settings($id, 'public');
 
         if ($row_id) {
@@ -260,7 +266,7 @@ class PublicDataHandler
         add_action('wp_head', function () use ($css, $tableId) {
             ?>
             <style id='ninja_table_custom_css_<?php echo esc_attr($tableId); ?>' type='text/css'>
-                <?php echo ninjaTablesEscCss($css); ?>
+                <?php echo ninjaTablesEscCss($css); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
             </style>
             <?php
         }, 99);
@@ -281,7 +287,7 @@ class PublicDataHandler
         }
         $table = get_post($table_id);
 
-        if (!$table || $table->post_type != 'ninja-table') {
+        if (!$table || $table->post_type !== 'ninja-table' || $table->post_status !== 'publish') {
             return;
         }
 
@@ -298,8 +304,8 @@ class PublicDataHandler
         add_action('wp_footer', function () use ($tableInstance, $table_id, $ninja_table_builder_responsive, $ninja_table_builder_setting) {
             ?>
             <script type="text/javascript">
-                window.<?php echo $tableInstance; ?> = {
-                    tableId: <?php echo $table_id; ?>,
+                window.<?php echo esc_js($tableInstance); ?> = {
+                    tableId: <?php echo absint($table_id); ?>,
                     responsive: <?php echo wp_json_encode($ninja_table_builder_responsive); ?>,
                     settings: <?php echo wp_json_encode($ninja_table_builder_setting); ?>
                 };
@@ -362,7 +368,7 @@ class PublicDataHandler
 
         $table = get_post($table_id);
 
-        if (!$table || $table->post_type != 'ninja-table') {
+        if (!$table || $table->post_type !== 'ninja-table' || $table->post_status !== 'publish') {
             return;
         }
 

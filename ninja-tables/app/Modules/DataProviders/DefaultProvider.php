@@ -104,14 +104,15 @@ class DefaultProvider
         $columns         = ninja_table_get_table_columns($tableId);
         $sortingColumn   = Arr::get($settings, 'sorting_column');
         $sortingColumnBy = Arr::get($settings, 'sorting_column_by', 'asc');
+        $sortingColumnBy = in_array(strtoupper($sortingColumnBy), ['ASC', 'DESC']) ? $sortingColumnBy : 'DESC';
 
         $column = Arr::first($columns, function ($column) use ($sortingColumn) {
             return Arr::get($column, 'key') === $sortingColumn;
         });
 
-        $dataType = Arr::get($column, 'data_type');
-
-        $dateFormat = Arr::get($column, 'dateFormat');
+        $dataType      = Arr::get($column, 'data_type');
+        $dateFormat    = Arr::get($column, 'dateFormat');
+        $sortingColumn = Arr::get($column, 'key');
 
         if ($dataType === 'number') {
             $query->orderByRaw("CAST(JSON_UNQUOTE(JSON_EXTRACT(value, '$.$sortingColumn')) AS SIGNED) " . $sortingColumnBy);

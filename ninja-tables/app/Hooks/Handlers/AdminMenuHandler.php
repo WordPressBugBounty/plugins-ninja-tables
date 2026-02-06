@@ -120,7 +120,7 @@ class AdminMenuHandler
 
         $slug = $config->get('app.slug');
 
-        $baseUrl = apply_filters('fluent_connector_base_url', admin_url('admin.php?page=' . $slug . '#/'));
+        $baseUrl = apply_filters('ninja_tables/fluent_connector_base_url', admin_url('admin.php?page=' . $slug . '#/'));
 
         $menuItems = [
             [
@@ -144,7 +144,7 @@ class AdminMenuHandler
 
     public function enqueueAssets()
     {
-       $page = Sanitizer::sanitizeTextField(Arr::get($_GET, 'page'));
+       $page = Sanitizer::sanitizeTextField(Arr::get($_GET, 'page')); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
         if ($page === 'ninja_tables') {
             $this->enqueueStyles();
             $this->enqueueScripts();
@@ -290,7 +290,9 @@ class AdminMenuHandler
         $cptName             = 'ninja-table';
         $tableCount          = wp_count_posts($cptName);
         $totalPublishedTable = 0;
+        $totalTrashedTable   = 0;
         $publish             = property_exists($tableCount, "publish") ? $tableCount->publish : 0;
+        $trash               = property_exists($tableCount, "trash") ? $tableCount->trash : 0;
 
         if ($tableCount && $publish > 1) {
             $leadStatus = $app->applyFilters('ninja_tables_show_lead', $leadStatus);
@@ -302,6 +304,10 @@ class AdminMenuHandler
 
         if ($tableCount && $publish > 0) {
             $totalPublishedTable = $publish;
+        }
+
+        if ($tableCount && $trash > 0) {
+            $totalTrashedTable = $trash;
         }
 
         $hasFluentFrom       = defined('FLUENTFORM_VERSION');
@@ -344,7 +350,7 @@ class AdminMenuHandler
             'img_url'                  => $assets . "img/",
             'fluentform_url'           => $fluentUrl,
             'fluent_wp_url'            => 'https://wordpress.org/plugins/fluentform/',
-            'fluent_form_icon'         => function_exists('getNinjaFluentFormMenuIcon') ? getNinjaFluentFormMenuIcon(
+            'fluent_form_icon'         => function_exists('ninjaTablesGetFluentFormMenuIcon') ? ninjaTablesGetFluentFormMenuIcon(
             ) : '',
             'dismissed'                => $dismissed,
             'show_lead_pop_up'         => $leadStatus,
@@ -363,10 +369,11 @@ class AdminMenuHandler
             'hasValidLicense'          => get_option('_ninjatables_pro_license_status'),
             'i18n'                     => I18nStrings::getStrings(),
             'published_tables'         => $totalPublishedTable,
+            'trashed_tables'           => $totalTrashedTable,
             'preview_required_scripts' => array(
                 $assets . "css/ninjatables-public.css",
                 $assets . "libs/footable/js/footable.min.js",
-                $assets . "libs/moment/moment.min.js",
+                includes_url( '/js/dist/vendor/moment.min.js'),
                 $assets . "js/ninja-tables-footable.js",
             ),
             'activated_features'       => $app->applyFilters('ninja_table_activated_features', array(
@@ -378,6 +385,7 @@ class AdminMenuHandler
             'has_sql_permission'       => $app->applyFilters('ninja_table_sql_permission', $isAdmin),
             'prefered_thumb'           => $app->applyFilters('ninja_table_prefered_thumb', 'medium'),
             'has_woocommerce'          => defined('WC_PLUGIN_FILE'),
+            'has_fluentCart'          => defined('FLUENTCART_VERSION'),
             'license_status'           => get_option('_ninjatables_pro_license_status'),
             'ninja_charts_url'         => defined('NINJA_CHARTS_VERSION') ? self_admin_url(
                 'admin.php?page=ninja-charts#/chart-list'

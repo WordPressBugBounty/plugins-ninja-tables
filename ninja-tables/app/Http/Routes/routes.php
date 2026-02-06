@@ -4,7 +4,6 @@
  * @var $router NinjaTables\Framework\Http\Router\Router
  */
 
-use NinjaTables\App\Http\Controllers\ExportTableController;
 use NinjaTables\App\Http\Controllers\FluentFormsController;
 use NinjaTables\App\Http\Controllers\ImportController;
 use NinjaTables\App\Http\Controllers\PluginInstallerController;
@@ -20,9 +19,11 @@ $router->withPolicy('UserPolicy')->group(function ($router) {
         $route->get('/', [TablesController::class, 'index']);
         $route->post('/', [TablesController::class, 'store']);
         $route->post('/dismiss-fluent-suggest', [TablesController::class, 'dismissFluentSuggest']);
+        $route->delete('/bulk-delete', [TablesController::class, 'bulkDeleteTables']);
+        $route->post('/bulk-restore', [TablesController::class, 'bulkRestoreTables']);
 
         $route->prefix('/{id}')->group(function ($route) {
-            $route->get('/', [TablesController::class, 'delete'])->int('id');
+            $route->delete('/', [TablesController::class, 'delete'])->int('id');
             $route->delete('/bulk-delete-columns', [TablesController::class, 'bulkDeleteColumns'])->int('id');
             $route->post('/duplicate', [TablesController::class, 'duplicate'])->int('id');
             $route->get('/table-inner-html', [TablesController::class, 'tableInnerHtml'])->int('id');
