@@ -42,22 +42,18 @@ trait FluentCartTrait
         return $formatted_columns;
     }
 
-    public function getProducts($tableId)
+    protected function buildProductQuery($tableId, $withOrdering = true)
     {
         $querySelection  = get_post_meta($tableId, '_ninja_table_fct_query_selections', true);
         $queryConditions = get_post_meta($tableId, '_ninja_table_fct_query_conditions', true);
 
-        $orderBy         = Arr::get($queryConditions, 'order_by');
-        $orderByType     = strtoupper((string) Arr::get($queryConditions, 'order_by_type'));
-        $orderByType     = in_array($orderByType, ['ASC', 'DESC'], true) ? $orderByType : 'DESC';
         $categories      = Arr::get($querySelection, 'product-categories');
         //TODO: rename product-types to product-brands
         $brands          = Arr::get($querySelection, 'product-types');
         $hideOutOfStock  = Arr::get($queryConditions, 'hide_out_of_stock');
 
         $query = Product::where('post_type', 'fluent-products')
-                        ->where('post_status', 'publish')
-                        ->with('variants');
+                        ->where('post_status', 'publish');
 
         if ($hideOutOfStock === 'yes') {
             $query->join('fct_product_details', 'fct_product_details.post_id', '=', 'posts.ID')
@@ -86,26 +82,58 @@ trait FluentCartTrait
             }
         }
 
-        if ($orderBy === 'post_title' || $orderBy === 'post_date') {
-            $query->orderBy($orderBy, $orderByType);
-        } elseif ($orderBy === 'price') {
-            $query->select('posts.*')
-                  ->join('fct_product_variations as fpv', 'posts.ID', '=', 'fpv.post_id')
-                  ->orderByRaw('MIN(fpv.item_price) ' . $orderByType);
-        } elseif ($orderBy === 'stock') {
-            $query->select('posts.*')
-                  ->join('fct_product_variations as fpv', 'posts.ID', '=', 'fpv.post_id')
-                  ->orderByRaw('CASE WHEN SUM(fpv.available) > 0 THEN 0 ELSE 1 END ASC')
-                  ->orderByRaw('SUM(fpv.available) ' . $orderByType);
+        if ($withOrdering) {
+            $orderBy     = Arr::get($queryConditions, 'order_by');
+            $orderByType = strtoupper((string) Arr::get($queryConditions, 'order_by_type'));
+            $orderByType = in_array($orderByType, ['ASC', 'DESC'], true) ? $orderByType : 'DESC';
+
+            if ($orderBy === 'post_title' || $orderBy === 'post_date') {
+                $query->orderBy($orderBy, $orderByType);
+            } elseif ($orderBy === 'price') {
+                $query->select('posts.*')
+                      ->join('fct_product_variations as fpv', 'posts.ID', '=', 'fpv.post_id')
+                      ->orderByRaw('MIN(fpv.item_price) ' . $orderByType);
+            } elseif ($orderBy === 'stock') {
+                $query->select('posts.*')
+                      ->join('fct_product_variations as fpv', 'posts.ID', '=', 'fpv.post_id')
+                      ->orderByRaw('CASE WHEN SUM(fpv.available) > 0 THEN 0 ELSE 1 END ASC')
+                      ->orderByRaw('SUM(fpv.available) ' . $orderByType);
+            }
         }
 
-        $products = $query->groupBy('posts.ID')->get();
+        return $query;
+    }
+
+    public function getProducts($tableId, $limit = 0, $offset = 0)
+    {
+        $query = $this->buildProductQuery($tableId);
+
+        $query->with('variants')->groupBy('posts.ID');
+
+        $offset = intval($offset);
+        if ($offset > 0) {
+            $query->offset($offset);
+        }
+
+        $limit = intval($limit);
+        if ($limit > 0) {
+            $query->limit($limit);
+        }
+
+        $products = $query->get();
 
         if (!$products->count()) {
             return [];
         }
 
         return $products;
+    }
+
+    public function getProductCount($tableId)
+    {
+        return (int) $this->buildProductQuery($tableId, false)
+                          ->distinct()
+                          ->count('posts.ID');
     }
 
     protected function setColumnData($column, $row)

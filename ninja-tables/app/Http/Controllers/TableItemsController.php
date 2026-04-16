@@ -3,14 +3,42 @@
 namespace NinjaTables\App\Http\Controllers;
 
 use NinjaTables\App\Models\NinjaTableItem;
+use NinjaTables\App\Modules\DataTables\Handlers\ItemsHandler;
 use NinjaTables\Framework\Http\Request\Request;
 use NinjaTables\Framework\Support\Arr;
 use NinjaTables\Framework\Support\Sanitizer;
 
 class TableItemsController extends Controller
 {
+    protected function isDataTablesTable($tableId)
+    {
+        $provider = ninja_table_get_data_provider($tableId);
+
+        if ($provider !== 'default') {
+            return false;
+        }
+
+        $settings = ninja_table_get_table_settings($tableId, 'public');
+        return isset($settings['library']) && $settings['library'] === 'datatables';
+    }
+
     public function index(Request $request, $id)
     {
+        $tableId = intval($id);
+
+        if ($this->isDataTablesTable($tableId)) {
+            $result = ItemsHandler::getItems($tableId, $request->all());
+
+            if (!$result['success']) {
+                $this->json(['message' => $result['message']], 400);
+                return;
+            }
+
+            unset($result['success']);
+            $this->json($result, 200);
+            return;
+        }
+
         $perPage     = intval(Arr::get($request->all(), 'per_page', 10));
         $currentPage = intval(Arr::get($request->all(), 'page', 1));
         $skip        = $perPage * ($currentPage - 1);
@@ -26,9 +54,22 @@ class TableItemsController extends Controller
 
     public function delete(Request $request, $id)
     {
-        $data = ninja_tables_sanitize_array($request->all());
-
         $tableId = intval($id);
+
+        if ($this->isDataTablesTable($tableId)) {
+            $ids = Arr::get($request->all(), 'id');
+            $result = ItemsHandler::delete($tableId, $ids);
+
+            if (!$result['success']) {
+                $this->json(['message' => $result['message']], 400);
+                return;
+            }
+
+            $this->json(['message' => $result['message']], 200);
+            return;
+        }
+
+        $data = ninja_tables_sanitize_array($request->all());
 
         $id = Arr::get($data, 'id');
 
@@ -48,6 +89,21 @@ class TableItemsController extends Controller
     public function store(Request $request, $id)
     {
         $tableId = intval($id);
+
+        if ($this->isDataTablesTable($tableId)) {
+            $result = ItemsHandler::store($tableId, $request->all());
+
+            if (!$result['success']) {
+                $this->json(['message' => $result['message']], $result['message'] === __('Row not found.', 'ninja-tables') ? 404 : 400);
+                return;
+            }
+
+            $this->json([
+                'message' => $result['message'],
+                'item' => $result['item'],
+            ], 200);
+            return;
+        }
 
         if (user_can_richedit()) {
             $row = ninja_tables_sanitize_table_content_array(Arr::get($request->all(), 'row', []), $tableId);
@@ -77,12 +133,29 @@ class TableItemsController extends Controller
 
     public function update(Request $request, $id)
     {
+        $tableId = intval($id);
+
+        if ($this->isDataTablesTable($tableId)) {
+            $result = ItemsHandler::updateCell($tableId, $request->all());
+
+            if (!$result['success']) {
+                $this->json(['message' => $result['message']], $result['message'] === __('Row not found.', 'ninja-tables') ? 404 : 400);
+                return;
+            }
+
+            return $this->sendSuccess([
+                'data' => [
+                    'message' => $result['message']
+                ]
+            ], 200);
+        }
+
         $rowId = intval(Arr::get($request->all(), 'row_id'));
 
         $row = NinjaTableItem::where('id', $rowId)->first();
 
         if (user_can_richedit()) {
-            $data = ninja_tables_sanitize_table_content_array($request->all(), $row->table_id);
+            $data = ninja_tables_sanitize_table_content_array($request->all(), $tableId);
         } else {
             ninja_tables_allowed_css_properties();
             $data = ninja_tables_sanitize_array($request->all());

@@ -26,7 +26,7 @@ class SettingsController extends Controller
         $provider = ninja_table_get_data_provider($table->ID);
 
         $table = $this->app->applyFilters('ninja_tables_get_table_' . $provider, $table);
-
+        $table->post_content  = wp_kses_post($table->post_content);
         $table->table_caption = get_post_meta($tableID, '_ninja_table_caption', true);
 
         $table->custom_css = get_post_meta($tableID, '_ninja_tables_custom_css', true);
@@ -106,14 +106,22 @@ class SettingsController extends Controller
             'javascript:', 'vbscript:', 'data:', 'file:', 'ftp:',
             '<script', '<iframe', '<object', '<embed', '<form',
             'onclick', 'onload', 'onerror', 'onmouseover', 'onfocus', 'onblur',
+            'onchange', 'oninput', 'onkeydown', 'onkeyup', 'onmouseenter',
             'eval(', 'alert(', 'setTimeout', 'setInterval', 'Function(',
             'document.', 'window.', 'location.', 'navigator.',
-            'exec(', 'system(', 'shell_exec', 'passthru(',
+            'exec(', 'system(', 'shell_exec', 'passthru(', 'fetch(',
             '<?php', '<?=', 'constructor', 'prototype'
         ];
 
-        $input = str_ireplace($dangerous, '', $input);
         $input = preg_replace('/[\x00-\x1F\x7F]/', '', $input);
+
+        $maxIterations = 10;
+        $i = 0;
+        do {
+            $before = $input;
+            $input = str_ireplace($dangerous, '', $input);
+            $i++;
+        } while ($input !== $before && $i < $maxIterations);
 
         return trim(substr($input, 0, 2000));
     }

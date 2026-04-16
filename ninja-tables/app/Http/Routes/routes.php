@@ -4,6 +4,8 @@
  * @var $router NinjaTables\Framework\Http\Router\Router
  */
 
+ defined( 'ABSPATH' ) || exit;
+
 use NinjaTables\App\Http\Controllers\FluentFormsController;
 use NinjaTables\App\Http\Controllers\ImportController;
 use NinjaTables\App\Http\Controllers\PluginInstallerController;
@@ -76,6 +78,8 @@ $router->withPolicy('UserPolicy')->group(function ($router) {
 
     $router->prefix('import')->group(function ($route) {
         $route->post('/default', [ImportController::class, 'defaultImport']);
+        $route->post('/default-csv/init', [ImportController::class, 'initDefaultCsvImport']);
+        $route->post('/default-csv/process', [ImportController::class, 'processDefaultCsvImportChunk']);
         $route->post('/table-builder', [ImportController::class, 'tableBuilderImport']);
         $route->post('/get-tables-from-other-plugin', [ImportController::class, 'getTablesFromOtherPlugin']);
         $route->post('/import-table-from-other-plugin', [ImportController::class, 'importTableFromOtherPlugin']);
@@ -87,4 +91,3 @@ $router->withPolicy('UserPolicy')->group(function ($router) {
         $route->post('/ninja-charts', [PluginInstallerController::class, 'installNinjaCharts']);
     });
 });
-

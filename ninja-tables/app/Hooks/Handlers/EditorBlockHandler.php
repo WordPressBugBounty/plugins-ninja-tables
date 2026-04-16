@@ -2,6 +2,8 @@
 
 namespace NinjaTables\App\Hooks\Handlers;
 
+defined( 'ABSPATH' ) || exit;
+
 use NinjaTables\App\App;
 use NinjaTables\Framework\Support\Arr;
 

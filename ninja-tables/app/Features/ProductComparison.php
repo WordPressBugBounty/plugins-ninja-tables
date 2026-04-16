@@ -4,6 +4,7 @@ namespace NinjaTables\App\Features;
 
 use NinjaTables\Framework\Support\Arr;
 
+defined( 'ABSPATH' ) || exit;
 class ProductComparison
 {
     public function register()

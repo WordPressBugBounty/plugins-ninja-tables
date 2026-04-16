@@ -32,6 +32,15 @@ class Helper
 
     public static function isValidUrl( $url )
     {
-        return (bool) filter_var( $url, FILTER_VALIDATE_URL );
+        if (!filter_var( $url, FILTER_VALIDATE_URL )) {
+            return false;
+        }
+
+        $parsed = wp_parse_url($url);
+        if (!isset($parsed['scheme']) || !in_array(strtolower($parsed['scheme']), ['http', 'https'], true)) {
+            return false;
+        }
+
+        return true;
     }
 }

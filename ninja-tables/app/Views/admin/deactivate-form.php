@@ -1,3 +1,6 @@
+<?php 
+defined( 'ABSPATH' ) || exit;
+?>
 <div class="ninja-deactivation-feedback <?php echo esc_attr($ninja_tables_slug); ?>_modal no-confirmation-message">
     <div class="ninja-modal-dialog">
         <div class="ninja-modal-header">
@@ -68,6 +71,7 @@
             $(this).text('Deactivating...').attr('disabled', true);
             jQuery.post(ajaxurl, {
                 action: '<?php echo esc_attr($ninja_tables_slug); ?>_deactivate_feedback',
+                _nonce: '<?php echo esc_attr(wp_create_nonce('ninja_tables_deactivate_feedback')); ?>',
                 reason: reason,
                 custom_message: custom_message
             })

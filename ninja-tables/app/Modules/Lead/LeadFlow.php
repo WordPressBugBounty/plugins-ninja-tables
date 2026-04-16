@@ -2,6 +2,8 @@
 
 namespace NinjaTables\App\Modules\Lead;
 
+defined( 'ABSPATH' ) || exit;
+
 class LeadFlow
 {
     private $notices = [];

@@ -2,6 +2,8 @@
 
 namespace NinjaTables\App\Hooks\Handlers;
 
+defined( 'ABSPATH' ) || exit;
+
 use NinjaTables\Framework\Support\Arr;
 
 class NoticeHandler

@@ -2,6 +2,8 @@
 
 namespace NinjaTables\App\Modules\FluentCart\Handlers;
 
+defined( 'ABSPATH' ) || exit;
+
 use FluentCart\Api\Resource\FrontendResource\CartResource;
 use NinjaTables\App\App;
 use NinjaTables\App\Modules\FluentCart\Traits\FluentCartTrait;
@@ -103,7 +105,7 @@ class FluentCartHandler
             return;
         }
 
-        $inputs = App::getInstance('request')->all();
+        $inputs      = ninjaTablesRequest();
         $tableId     = intval(Arr::get($inputs, 'table_id'));
         $perPage     = intval(Arr::get($inputs, 'per_page', 20));
         $currentPage = intval(Arr::get($inputs, 'page', 1));
@@ -111,14 +113,12 @@ class FluentCartHandler
 
         $columns = get_post_meta($tableId, '_ninja_table_columns', true);
 
-        $products      = $this->getProducts($tableId);
+        $total         = $this->getProductCount($tableId);
+        $products      = $this->getProducts($tableId, $perPage, $skip);
         $formattedData = $this->formatProductData($columns, $products);
-        $total         = count($formattedData);
-
-        $paginatedData = array_slice($formattedData, $skip, $perPage);
 
         $data = [
-            'data'        => $paginatedData,
+            'data'        => $formattedData,
             'data_source' => 'wp_fct',
             'total'       => $total
         ];
@@ -295,7 +295,10 @@ class FluentCartHandler
     public function getPosts($tableId, $per_page = -1, $offset = 0)
     {
         $frontendColumns = $this->getFrontendColumns($tableId);
-        $products        = $this->getProducts($tableId);
+
+        $limit    = ($per_page > 0) ? $per_page : 0;
+        $offset   = intval($offset);
+        $products = $this->getProducts($tableId, $limit, $offset);
 
         return $this->formatFrontendProductData($frontendColumns, $products);
     }

@@ -45,7 +45,7 @@ class TablesController extends Controller
             $this->json($tablesRes, 200);
         } catch (\Exception $e) {
             $this->json(array(
-                'message' => $e->getMessage()
+                'message' => __('An error occurred while loading tables.', 'ninja-tables')
             ), 300);
         }
     }
@@ -70,9 +70,19 @@ class TablesController extends Controller
             'post_status'  => 'publish'
         );
 
+        $tableId = Post::saveTable($attributes, $postId);
+
+        if (!$postId) {
+            do_action('ninja_tables/update_table_settings', $tableId, [
+                'request_data' => $request->all()
+            ]);
+            do_action('ninja_tables/after_table_created', $tableId, [
+                'request_data' => $request->all()
+            ]);
+        }
 
         $this->json(array(
-            'table_id' => Post::saveTable($attributes, $postId),
+            'table_id' => $tableId,
             'message'  => $postId ? __('Table updated successfully', 'ninja-tables') : __('Table saved successfully.', 'ninja-tables')
         ), 200);
     }
@@ -107,7 +117,7 @@ class TablesController extends Controller
             ), 200);
         } catch (\Exception $e) {
             $this->json(array(
-                'message' => $e->getMessage()
+                'message' => __('An error occurred while deleting the table.', 'ninja-tables')
             ), 300);
         }
     }
@@ -145,7 +155,7 @@ class TablesController extends Controller
             ), 200);
         } catch (\Exception $e) {
             $this->json(array(
-                'message' => $e->getMessage()
+                'message' => __('An error occurred while duplicating the table.', 'ninja-tables')
             ), 300);
         }
     }

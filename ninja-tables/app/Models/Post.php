@@ -156,6 +156,7 @@ class Post extends Model
                 $rawColumns,
                 $tableId
             );
+            do_action('ninja_table_before_update_columns', $tableColumns, $rawColumns, $tableId);
             update_post_meta($tableId, '_ninja_table_columns', $tableColumns);
         }
 

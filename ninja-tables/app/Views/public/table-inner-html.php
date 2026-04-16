@@ -1,4 +1,5 @@
 <?php
+defined( 'ABSPATH' ) || exit;
 $ninja_tables_table_columns = array_reverse($table_columns);
 $ninja_tables_header_row = '';
 $ninja_tables_counter = 1;
