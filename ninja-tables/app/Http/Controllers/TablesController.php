@@ -14,6 +14,16 @@ class TablesController extends Controller
 {
     private $cptName = 'ninja-table';
 
+    private function assertNinjaTable($id)
+    {
+        if (get_post_type($id) !== $this->cptName) {
+            return $this->sendError([
+                'message' => __('Invalid table.', 'ninja-tables'),
+            ], 423);
+        }
+        return null;
+    }
+
     public function index(Request $request)
     {
         $perPage = intval(Arr::get($request->all(), 'per_page')) ?: 10;
@@ -59,6 +69,12 @@ class TablesController extends Controller
         }
 
         $postId = intval(Arr::get($request->all(), 'tableId'));
+
+        if ($postId && get_post_type($postId) !== $this->cptName) {
+            return $this->sendError([
+                'message' => __('Invalid table.', 'ninja-tables')
+            ], 423);
+        }
 
         $caption = Arr::get($request->all(), 'table_caption');
         update_post_meta($postId, '_ninja_table_caption', Sanitizer::sanitizeTextField($caption));
@@ -284,6 +300,10 @@ class TablesController extends Controller
 
     public function bulkDeleteColumns(Request $request, $id)
     {
+        if ($response = $this->assertNinjaTable($id)) {
+            return $response;
+        }
+
         $deletableKeys = Arr::get($request->all(), 'deletable_keys', []);
 
         $getAllColumns = get_post_meta($id, '_ninja_table_columns', true);

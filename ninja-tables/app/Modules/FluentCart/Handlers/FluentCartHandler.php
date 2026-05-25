@@ -2,7 +2,9 @@
 
 namespace NinjaTables\App\Modules\FluentCart\Handlers;
 
-defined( 'ABSPATH' ) || exit;
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
 
 use FluentCart\Api\Resource\FrontendResource\CartResource;
 use NinjaTables\App\App;
@@ -17,6 +19,15 @@ class FluentCartHandler
     use FluentCartTrait;
 
     private $__queryable_postColumns__ = [];
+
+    private function assertNinjaTable($tableId)
+    {
+        if (get_post_type($tableId) !== 'ninja-table') {
+            wp_send_json_error([
+                'message' => __('No Table Found', 'ninja-tables')
+            ], 423);
+        }
+    }
 
     public function getFluentCartOptions()
     {
@@ -99,14 +110,17 @@ class FluentCartHandler
         wp_send_json_success(array('table_id' => $tableId, 'message' => $message), 200);
     }
 
-    public function getTableData()
+    public function getTableData($response = array(array(), 0), $tableId = 0)
     {
         if (!current_user_can(ninja_table_admin_role())) {
             return;
         }
 
-        $inputs      = ninjaTablesRequest();
-        $tableId     = intval(Arr::get($inputs, 'table_id'));
+        $inputs  = ninjaTablesRequest();
+        $tableId = intval($tableId) ?: intval(Arr::get($inputs, 'table_id'));
+
+        $this->assertNinjaTable($tableId);
+
         $perPage     = intval(Arr::get($inputs, 'per_page', 20));
         $currentPage = intval(Arr::get($inputs, 'page', 1));
         $skip        = ($currentPage - 1) * $perPage;
@@ -227,6 +241,8 @@ class FluentCartHandler
         if (!$tableId) {
             wp_send_json_error(array('message' => 'Table not found'), 400);
         }
+
+        $this->assertNinjaTable($tableId);
 
         $data = [
             'query_selections'    => ninja_tables_sanitize_array(Arr::get($inputs, 'query_selections', [])),

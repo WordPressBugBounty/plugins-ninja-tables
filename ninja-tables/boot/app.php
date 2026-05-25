@@ -1,5 +1,7 @@
 <?php
-defined( 'ABSPATH' ) || exit;
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
 
 use NinjaTables\Framework\Foundation\Application;
 use NinjaTables\App\Hooks\Handlers\ActivationHandler;

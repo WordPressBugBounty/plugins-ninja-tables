@@ -2,7 +2,9 @@
 
 namespace NinjaTables\App\Modules\DataProviders;
 
-defined( 'ABSPATH' ) || exit;
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
 
 use NinjaTables\App\App;
 use NinjaTables\App\Helper\ColumnHelper;

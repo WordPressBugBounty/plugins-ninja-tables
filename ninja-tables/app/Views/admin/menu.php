@@ -1,5 +1,7 @@
 <?php
-defined( 'ABSPATH' ) || exit;
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
 ?>
 <div class="table_data_press" id="data-tables-app"></div> <?php // phpcs:ignore Internal.NoCodeFound ?>
 

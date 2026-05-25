@@ -121,9 +121,19 @@ class TableItemsController extends Controller
         $created_at    = Arr::get($request->all(), 'created_at');
         $insertAfterId = Arr::get($request->all(), 'insert_after_id');
         $settings      = Arr::get($request->all(), 'settings');
-        $id            = Arr::get($request->all(), 'id');
+        $rowId         = intval(Arr::get($request->all(), 'id'));
 
-        $data = NinjaTableItem::insertTableItem($id, $tableId, $formattedRow, $created_at, $insertAfterId, $settings);
+        if ($rowId) {
+            $row = NinjaTableItem::where('id', $rowId)->where('table_id', $tableId)->first();
+
+            if (!$row) {
+                return $this->sendError([
+                    'message' => __('Row not found.', 'ninja-tables')
+                ], 404);
+            }
+        }
+
+        $data = NinjaTableItem::insertTableItem($rowId, $tableId, $formattedRow, $created_at, $insertAfterId, $settings);
 
         $this->json(array(
             'message' => __('Successfully saved the data.', 'ninja-tables'),
@@ -152,7 +162,13 @@ class TableItemsController extends Controller
 
         $rowId = intval(Arr::get($request->all(), 'row_id'));
 
-        $row = NinjaTableItem::where('id', $rowId)->first();
+        $row = NinjaTableItem::where('id', $rowId)->where('table_id', $tableId)->first();
+
+        if (!$row) {
+            return $this->sendError([
+                'message' => __('Row not found.', 'ninja-tables')
+            ], 404);
+        }
 
         if (user_can_richedit()) {
             $data = ninja_tables_sanitize_table_content_array($request->all(), $tableId);

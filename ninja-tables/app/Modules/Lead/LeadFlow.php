@@ -2,7 +2,9 @@
 
 namespace NinjaTables\App\Modules\Lead;
 
-defined( 'ABSPATH' ) || exit;
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
 
 class LeadFlow
 {

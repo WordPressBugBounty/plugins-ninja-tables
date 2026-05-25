@@ -2,7 +2,9 @@
 
 namespace NinjaTables\App\Modules\Gutenberg;
 
-defined( 'ABSPATH' ) || exit;
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
 
 use NinjaTables\App\App;
 use NinjaTables\App\Models\Post;
@@ -134,6 +136,14 @@ class GutenbergModule
         $tablePreference = [];
 
         if (!$tableId) {
+            return;
+        }
+
+        if (get_post_type($tableId) !== 'ninja-table') {
+            return;
+        }
+
+        if (!current_user_can(ninja_table_admin_role())) {
             return;
         }
 

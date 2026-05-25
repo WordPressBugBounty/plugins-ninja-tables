@@ -12,6 +12,18 @@ class SettingsController extends Controller
 {
     private $cptName = 'ninja-table';
 
+    private function assertNinjaTable($id)
+    {
+        if (get_post_type($id) !== $this->cptName) {
+            return $this->sendError([
+                'message' => __('No Table Found', 'ninja-tables'),
+                'route'   => 'home',
+            ], 423);
+        }
+
+        return null;
+    }
+
     public function getTableSettings(Request $request, $id)
     {
         $tableID = intval($id);
@@ -44,6 +56,11 @@ class SettingsController extends Controller
     public function updateTableSettings(Request $request, $id)
     {
         $tableId         = intval($id);
+
+        if ($response = $this->assertNinjaTable($tableId)) {
+            return $response;
+        }
+
         $rawColumns      = [];
         $tablePreference = '';
 
@@ -129,6 +146,11 @@ class SettingsController extends Controller
     public function getButtonSettings(Request $request, $id)
     {
         $tableId             = absint($id);
+
+        if ($response = $this->assertNinjaTable($tableId)) {
+            return $response;
+        }
+
         $tableButtonDefaults = array(
             'csv'              => array(
                 'status'     => 'no',
@@ -168,6 +190,11 @@ class SettingsController extends Controller
     {
         ninja_tables_allowed_css_properties();
         $tableId        = absint($id);
+
+        if ($response = $this->assertNinjaTable($tableId)) {
+            return $response;
+        }
+
         $buttonSettings = ninja_tables_sanitize_array(wp_unslash(Arr::get($request->all(), 'button_settings', [])));
         update_post_meta($tableId, '_ninja_custom_table_buttons', $buttonSettings);
 
@@ -181,6 +208,11 @@ class SettingsController extends Controller
     public function saveCustomCSSJS(Request $request, $id)
     {
         $tableId = intval($id);
+
+        if ($response = $this->assertNinjaTable($tableId)) {
+            return $response;
+        }
+
         $css     = isset($_REQUEST['custom_css']) ? sanitize_textarea_field(wp_unslash($_REQUEST['custom_css'])) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
         $css     = wp_strip_all_tags($css);
         update_post_meta($tableId, '_ninja_tables_custom_css', $css);
@@ -197,6 +229,10 @@ class SettingsController extends Controller
     public function getCustomCSSJS(Request $request, $id)
     {
         $tableId = intval($id);
+
+        if ($response = $this->assertNinjaTable($tableId)) {
+            return $response;
+        }
 
         return $this->sendSuccess([
             'data' => [

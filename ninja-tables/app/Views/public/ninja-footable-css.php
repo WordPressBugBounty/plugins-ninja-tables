@@ -1,4 +1,4 @@
-<?php defined( 'ABSPATH' ) || exit; ?>
+<?php if ( ! defined( 'ABSPATH' ) ) { exit; } ?>
 <?php if($fonts):?>
     <?php echo esc_attr($css_prefix); ?>  {
     font-family: <?php echo esc_attr($fonts['table_font_family']);?>;

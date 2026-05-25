@@ -2,7 +2,9 @@
 
 namespace NinjaTables\App\Hooks\Handlers;
 
-defined( 'ABSPATH' ) || exit;
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
 
 use NinjaTables\App\App;
 use NinjaTables\App\Modules\I18nStrings;

@@ -623,6 +623,11 @@ class ImportController extends Controller
         $tableId = intval(Arr::get($request->all(), 'tableId'));
 
         if ($plugin == 'TablePress') {
+            if (get_post_type($tableId) !== 'tablepress_table') {
+                return $this->sendError([
+                    'data' => ['message' => __('Invalid table.', 'ninja-tables')]
+                ], 423);
+            }
             $libraryClass = new NinjaTablesTablePressMigration();
         } elseif ($plugin == 'supsystic') {
             $libraryClass = new NinjaTablesSupsysticTableMigration();
@@ -658,6 +663,13 @@ class ImportController extends Controller
         try {
             global $wpdb;
             $tableId = intval(Arr::get($request->all(), 'table_id'));
+
+            if (!$tableId || get_post_type($tableId) !== $this->cpt_name) {
+                return $this->sendError([
+                    'data' => ['message' => __('Invalid table.', 'ninja-tables')]
+                ], 423);
+            }
+
             $tmpName = Arr::get($_FILES, 'file.tmp_name'); // phpcs:ignore WordPress.Security.NonceVerification.Missing
 
             if (!$tmpName || !is_uploaded_file($tmpName)) {

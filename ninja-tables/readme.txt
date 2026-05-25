@@ -3,8 +3,8 @@ Contributors: wpmanageninja, techjewel, adreastrian, heera
 Tags: Table, table builder, datatable, tables, spreadsheet
 Requires at least: 6.0
 Requires PHP: 7.4
-Tested up to: 6.9
-Stable tag: 5.2.8
+Tested up to: 7.0
+Stable tag: 5.2.9
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -414,6 +414,19 @@ Ninja Tables [customer support](https://wpmanageninja.com/support-tickets/#/) te
 
 == Changelog ==
 We released several updates for Ninja Tables in the years of development. These include improvements to the existing features and some wonderful additions to help you design tables more effectively.
+
+= 5.2.9 (Date: May 25, 2026) =
+  * Fixed: Row query scoping by table_id in manual sort operations
+  * Fixed: Gutenberg block save now validates post type and user role
+  * Fixed: Content filtering for frontend table submissions
+  * Improved: Post-type validation on settings, FluentCart, and column-delete endpoints
+  * Improved: Access control for table row and post-meta operations
+  * Improved: HTML sanitization for frontend table submissions
+  * Improved: Server-side validation for editable column fields
+  * Improved: Authentication checks for license management endpoints
+  * Improved: License management restricted to network admin on multisite
+  * Improved: Directory listing protection across all plugin directories
+  * Improved: Input validation on license key submissions
 
 = 5.2.8 (Date: April 16, 2026) =
  * Added: DataTables support for table rendering.
