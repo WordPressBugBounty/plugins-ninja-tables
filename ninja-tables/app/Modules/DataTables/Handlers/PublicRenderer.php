@@ -22,6 +22,8 @@ class PublicRenderer
         add_action('ninja_tables-render-table-datatables', [$instance, 'run']);
         add_action('wp_ajax_ninja_tables_dt_public', [$instance, 'handleAjax']);
         add_action('wp_ajax_nopriv_ninja_tables_dt_public', [$instance, 'handleAjax']);
+        add_action('wp_ajax_ninja_tables_dt_filter_options', [$instance, 'handleFilterOptions']);
+        add_action('wp_ajax_nopriv_ninja_tables_dt_filter_options', [$instance, 'handleFilterOptions']);
     }
 
     public function run($tableArray)
@@ -209,6 +211,10 @@ class PublicRenderer
                 'action'   => 'ninja_tables_dt_public',
                 'table_id' => $tableId,
             ], admin_url('admin-ajax.php'));
+            $dt_config['filter_options_url'] = add_query_arg([
+                'action'   => 'ninja_tables_dt_filter_options',
+                'table_id' => $tableId,
+            ], admin_url('admin-ajax.php'));
         }
 
         $tableCaption = get_post_meta($tableId, '_ninja_table_caption', true);
@@ -385,6 +391,95 @@ class PublicRenderer
         // phpcs:enable WordPress.Security.NonceVerification.Recommended
     }
 
+    /**
+     * AJAX: distinct values for the requested dynamic-data filter columns, narrowed by
+     * the active custom filters. Lets server-side (ajax_table) tables build full
+     * dynamic-select option lists that the client cannot derive from a single page.
+     */
+    public function handleFilterOptions()
+    {
+        $request = ninjaTablesRequest();
+        $tableId = intval(Arr::get($request, 'table_id', 0));
+
+        if (!$tableId) {
+            wp_send_json(['options' => []]);
+        }
+
+        $post = get_post($tableId);
+        if (!$post || $post->post_type !== 'ninja-table' || $post->post_status !== 'publish') {
+            wp_send_json(['options' => []]);
+        }
+
+        try {
+            $columns = Arr::get($request, 'columns', []);
+            if (is_string($columns)) {
+                $columns = json_decode(wp_unslash($columns), true);
+            }
+            $columns = is_array($columns) ? array_slice(array_values(array_filter($columns)), 0, 20) : [];
+
+            // Only serve columns actually configured as dynamic-data select filters for this table.
+            $allowedColumns = [];
+            $savedFilters   = get_post_meta($tableId, '_ninja_table_custom_filters', true);
+            if (is_array($savedFilters)) {
+                foreach ($savedFilters as $savedFilter) {
+                    if (
+                        is_array($savedFilter)
+                        && Arr::get($savedFilter, 'type') === 'select'
+                        && Arr::get($savedFilter, 'select_value_type') === 'dynamic_data'
+                        && Arr::get($savedFilter, 'dynamic_select_column')
+                    ) {
+                        $allowedColumns[] = Arr::get($savedFilter, 'dynamic_select_column');
+                    }
+                }
+            }
+            $columns = array_values(array_intersect($columns, $allowedColumns));
+
+            $search = substr(sanitize_text_field(Arr::get($request, 'search', '')), 0, 200);
+
+            $customFilters = [];
+            $ninjaFilters  = Arr::get($request, 'ninja_filters', '');
+            if (!empty($ninjaFilters)) {
+                $decoded = json_decode(wp_unslash($ninjaFilters), true);
+                if (is_array($decoded)) {
+                    $customFilters = $decoded;
+                }
+            }
+
+            // Cache by full request state so repeated identical lookups (the unfiltered
+            // initial/reset set every visitor requests) don't re-run the DISTINCT scans.
+            // Short, filterable TTL; set the filter to 0 to disable caching.
+            $cacheTtl = (int) apply_filters('ninja_tables_dt_filter_options_cache_ttl', 5 * MINUTE_IN_SECONDS, $tableId);
+            $cacheKey = $cacheTtl > 0
+                ? 'nt_dt_fopts_' . md5($tableId . '|' . $search . '|' . wp_json_encode($customFilters) . '|' . implode(',', $columns))
+                : '';
+            if ($cacheKey) {
+                $cached = get_transient($cacheKey);
+                if (is_array($cached)) {
+                    wp_send_json(['options' => $cached]);
+                }
+            }
+
+            $dynamicRow = new DynamicRow($tableId);
+            if (!$dynamicRow->tableExists()) {
+                wp_send_json(['options' => []]);
+            }
+
+            $options = [];
+            foreach ($columns as $col) {
+                $col = sanitize_text_field($col);
+                $options[$col] = $dynamicRow->getDistinctValues($col, $search ?: null, $customFilters);
+            }
+
+            if ($cacheKey) {
+                set_transient($cacheKey, $options, $cacheTtl);
+            }
+
+            wp_send_json(['options' => $options]);
+        } catch (\Throwable $e) {
+            wp_send_json(['options' => []]);
+        }
+    }
+
     private function renderShortcodesInRowValues(array $rowData, array $columnTypeMap = []): array
     {
         foreach ($rowData as $key => &$value) {
@@ -506,7 +601,13 @@ class PublicRenderer
             'ninja_table_public_nonce' => wp_create_nonce('ninja_table_public_nonce'),
         ];
         $polyfillJson = wp_json_encode($polyfillData);
-        wp_add_inline_script('jquery-core', 'if(!window.ninja_footables){window.ninja_footables=' . $polyfillJson . ';}', 'after');
+        /*
+         * Attach to ninja_dt_init (our own footer script) rather than jquery-core: jQuery is
+         * usually already printed in <head> before the shortcode runs, so a late inline script
+         * on jquery-core is silently dropped. ninja_dt_init is still pending and prints before
+         * jquery.sumoselect.js, which reads window.ninja_footables.i18n on init.
+         */
+        wp_add_inline_script('ninja_dt_init', 'if(!window.ninja_footables){window.ninja_footables=' . $polyfillJson . ';}', 'before');
     }
 
     private function enqueueResponsiveAssets()

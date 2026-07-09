@@ -174,6 +174,38 @@ class DynamicRow
         return (int) $query->count();
     }
 
+    public function getDistinctValues($columnKey, $search = null, $customFilters = [])
+    {
+        if (!$this->tableExists()) {
+            return [];
+        }
+
+        $colName = $this->tableManager->sanitizeColumnName($columnKey);
+        if (!in_array($colName, $this->tableManager->getExistingColumns(), true)) {
+            return [];
+        }
+
+        $query = $this->newQuery();
+
+        $this->applySearchConditions($query, $search);
+        $this->applyCustomFilters($query, $customFilters);
+
+        $cap     = apply_filters('ninja_tables_dt_max_filter_options', 2000);
+        $results = $query->select($colName)->distinct()->limit($cap)->get();
+
+        $values = [];
+        foreach ($results as $row) {
+            $val = is_object($row)
+                ? (isset($row->{$colName}) ? $row->{$colName} : null)
+                : Arr::get((array) $row, $colName);
+            if ($val !== null && $val !== '') {
+                $values[] = $val;
+            }
+        }
+
+        return array_values(array_unique($values));
+    }
+
     public function getNextPosition()
     {
         if (!$this->tableExists()) {

@@ -178,7 +178,11 @@ class TableItemsController extends Controller
         }
 
         $columnKey   = Sanitizer::sanitizeTextField(Arr::get($data, 'column_key'));
-        $columnValue = Sanitizer::sanitizeTextField(Arr::get($data, 'column_value'));
+        $columnValue = Arr::get($data, 'column_value', '');
+
+        if (is_string($columnValue)) {
+            $columnValue = Sanitizer::sanitizeTextField($columnValue);
+        }
 
         NinjaTableItem::editSingleCell($rowId, $row, $columnKey, $columnValue);
 

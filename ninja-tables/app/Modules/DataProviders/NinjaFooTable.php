@@ -82,6 +82,18 @@ class NinjaFooTable
         }
 
         wp_localize_script('footable_init', 'ninja_footables', $localizeData);
+
+        /*
+         * Pro's bundle extends FooTable (e.g. the "~min:max" range filter), so it must load after
+         * FooTable. Add the dependency only here, in the FooTable render path, so DataTables pages
+         * (where 'footable' is never enqueued) don't drop the Pro bundle.
+         */
+        if (wp_script_is('ninja-tables-pro', 'registered')) {
+            $proScript = wp_scripts()->registered['ninja-tables-pro'];
+            if ( ! in_array('footable', $proScript->deps, true)) {
+                $proScript->deps[] = 'footable';
+            }
+        }
     }
 
     /**
