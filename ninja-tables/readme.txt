@@ -4,7 +4,7 @@ Tags: Table, table builder, datatable, tables, spreadsheet
 Requires at least: 6.0
 Requires PHP: 7.4
 Tested up to: 7.0
-Stable tag: 5.2.10
+Stable tag: 5.2.11
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -415,6 +415,9 @@ Ninja Tables [customer support](https://wpmanageninja.com/support-tickets/#/) te
 == Changelog ==
 We released several updates for Ninja Tables in the years of development. These include improvements to the existing features and some wonderful additions to help you design tables more effectively.
 
+= 5.2.11 (Date: July 16, 2026) =
+ * Security: Fixes table data handling issue on the frontend.
+
 = 5.2.10 (Date: July 09, 2026) =
  * Added: dynamic-select support for custom filters in DataTables mode.
  * Added: accessibility labels for custom filter controls.
@@ -427,6 +430,7 @@ We released several updates for Ninja Tables in the years of development. These 
  * Fixed: button text and WooCommerce HTML-field columns rendering as escaped text.
  * Fixed: range filter not working when Pro is loaded before FooTable.
  * Security: Added direct file access protection to installer service files.
+ * Security: Hardened against DOM/Stored XSS and direct file access.
  * Improved: Design Studio Styles panel spacing and rendering-settings UI.
  * Improved: Sticky header support and keyboard accessibility for DataTables and FooTable engines.
  * Improved: admin UI alignment and border issues.
