@@ -756,7 +756,7 @@ class BelongsToMany extends Relation
      *     : TRelatedModel|TValue
      * )
      */
-    public function findOr($id, $columns = ['*'], Closure $callback = null)
+    public function findOr($id, $columns = ['*'], ?Closure $callback = null)
     {
         if ($columns instanceof Closure) {
             $callback = $columns;
@@ -832,7 +832,7 @@ class BelongsToMany extends Relation
      * @param  (\Closure(): TValue)|null  $callback
      * @return TRelatedModel|TValue
      */
-    public function firstOr($columns = ['*'], Closure $callback = null)
+    public function firstOr($columns = ['*'], ?Closure $callback = null)
     {
         if ($columns instanceof Closure) {
             $callback = $columns;

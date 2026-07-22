@@ -47,6 +47,8 @@ class TranslationService
                     __('Fri', 'ninja-tables'),
                     __('Sat', 'ninja-tables'),
                 ],
+                'midnight'      => __('12 AM', 'ninja-tables'),
+                'noon'          => __('12 PM', 'ninja-tables'),
             ],
         ];
     }

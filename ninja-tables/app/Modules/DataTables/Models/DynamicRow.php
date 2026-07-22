@@ -152,8 +152,15 @@ class DynamicRow
         $this->applySearchConditions($query, $search);
         $this->applyCustomFilters($query, $customFilters);
 
-        $results = $query->orderBy($orderBy, $order)
-                        ->offset($offset)
+        $query->orderBy($orderBy, $order);
+
+        // Stable tie-breaker so offset paging can't drop/duplicate rows that
+        // share the ordering value (e.g. duplicate __position).
+        if ($orderBy !== DynamicTableManager::COL_ID) {
+            $query->orderBy(DynamicTableManager::COL_ID, 'ASC');
+        }
+
+        $results = $query->offset($offset)
                         ->limit($perPage)
                         ->get();
 
@@ -408,19 +415,24 @@ class DynamicRow
                 break;
 
             case 'gte':
-                $val = floatval(Arr::get($filter, 'value', 0));
-                $query->where($parentQuery->raw("CAST(`{$colName}` AS DECIMAL(20,6))"), '>=', $val);
+                $column   = $this->getColumnBySanitizedName($colName);
+                $val      = $this->normalizeNumericBound(Arr::get($filter, 'value', 0), $column);
+                $castExpr = $parentQuery->raw($this->numericCastExpression($colName, $column));
+                $query->where($castExpr, '>=', $val);
                 break;
 
             case 'lte':
-                $val = floatval(Arr::get($filter, 'value', 0));
-                $query->where($parentQuery->raw("CAST(`{$colName}` AS DECIMAL(20,6))"), '<=', $val);
+                $column   = $this->getColumnBySanitizedName($colName);
+                $val      = $this->normalizeNumericBound(Arr::get($filter, 'value', 0), $column);
+                $castExpr = $parentQuery->raw($this->numericCastExpression($colName, $column));
+                $query->where($castExpr, '<=', $val);
                 break;
 
             case 'range':
-                $from = floatval(Arr::get($filter, 'value_from', 0));
-                $to   = floatval(Arr::get($filter, 'value_to', 0));
-                $castExpr = $parentQuery->raw("CAST(`{$colName}` AS DECIMAL(20,6))");
+                $column   = $this->getColumnBySanitizedName($colName);
+                $from     = $this->normalizeNumericBound(Arr::get($filter, 'value_from', 0), $column);
+                $to       = $this->normalizeNumericBound(Arr::get($filter, 'value_to', 0), $column);
+                $castExpr = $parentQuery->raw($this->numericCastExpression($colName, $column));
                 $query->where($castExpr, '>=', $from);
                 $query->where($castExpr, '<=', $to);
                 break;
@@ -450,6 +462,81 @@ class DynamicRow
             default:
                 break;
         }
+    }
+
+    /**
+     * Resolve a column definition from its sanitized (DB) column name.
+     *
+     * @param string $colName
+     * @return array|null
+     */
+    protected function getColumnBySanitizedName($colName)
+    {
+        foreach ($this->columns as $column) {
+            $key = $this->tableManager->sanitizeColumnName(Arr::get($column, 'key', ''));
+            if ($key === $colName) {
+                return $column;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Normalize a numeric filter bound to a float.
+     *
+     * The client sends canonical dot-decimal bounds (see canonicalNumber in
+     * _dtCustomFilters.js). As a defensive fallback for any caller that still
+     * passes a European display value, a lone decimal comma is honoured when
+     * the column is configured that way before parsing.
+     *
+     * @param mixed      $value
+     * @param array|null $column
+     * @return float
+     */
+    protected function normalizeNumericBound($value, $column)
+    {
+        $value = preg_replace('/[^0-9.,\-]/', '', (string) $value);
+
+        // Canonical dot-decimal (no comma) is the expected form.
+        if (strpos($value, ',') === false) {
+            return floatval($value);
+        }
+
+        // Fallback: a comma-decimal display value slipped through.
+        if ($column && Arr::get($column, 'decimalSeparator') === ',') {
+            $value = str_replace('.', '', $value);
+            $value = str_replace(',', '.', $value);
+        } else {
+            $value = str_replace(',', '', $value);
+        }
+
+        return floatval($value);
+    }
+
+    /**
+     * Build a CAST expression that normalizes the stored cell value before the
+     * numeric comparison, honouring the column's decimalSeparator so a stored
+     * "1.234,56" casts to 1234.56 rather than 1.234.
+     *
+     * $colName is already sanitized by sanitizeColumnName(); the REPLACE
+     * arguments are static literals, so the expression is safe to embed.
+     *
+     * @param string     $colName
+     * @param array|null $column
+     * @return string
+     */
+    protected function numericCastExpression($colName, $column)
+    {
+        if ($column && Arr::get($column, 'decimalSeparator') === ',') {
+            // Strip the '.' thousands separator, turn the ',' decimal into '.'.
+            $expr = "REPLACE(REPLACE(`{$colName}`, '.', ''), ',', '.')";
+        } else {
+            // Strip the ',' thousands separator.
+            $expr = "REPLACE(`{$colName}`, ',', '')";
+        }
+
+        return "CAST({$expr} AS DECIMAL(20,6))";
     }
 
     /**

@@ -114,7 +114,7 @@ abstract class HasOneOrManyThrough extends Relation
      * @param  \NinjaTables\Framework\Database\Orm\Builder<TRelatedModel>|null  $query
      * @return void
      */
-    protected function performJoin(Builder $query = null)
+    protected function performJoin(?Builder $query = null)
     {
         $query = $query ?: $this->query;
 
@@ -312,7 +312,7 @@ abstract class HasOneOrManyThrough extends Relation
      * @param  (\Closure(): TValue)|null  $callback
      * @return TRelatedModel|TValue
      */
-    public function firstOr($columns = ['*'], Closure $callback = null)
+    public function firstOr($columns = ['*'], ?Closure $callback = null)
     {
         if ($columns instanceof Closure) {
             $callback = $columns;
@@ -405,7 +405,7 @@ abstract class HasOneOrManyThrough extends Relation
      *     : TRelatedModel|TValue
      * )
      */
-    public function findOr($id, $columns = ['*'], Closure $callback = null)
+    public function findOr($id, $columns = ['*'], ?Closure $callback = null)
     {
         if ($columns instanceof Closure) {
             $callback = $columns;

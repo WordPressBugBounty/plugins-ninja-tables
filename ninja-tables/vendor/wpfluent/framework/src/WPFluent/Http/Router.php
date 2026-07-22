@@ -64,7 +64,7 @@ class Router
      * @param  \Closure|null $callback
      * @return null
      */
-    public function group($attributes = [], \Closure $callback = null)
+    public function group($attributes = [], ?\Closure $callback = null)
     {
         $this->groupCount += 1;
 

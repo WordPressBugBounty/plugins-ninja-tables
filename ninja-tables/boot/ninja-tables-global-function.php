@@ -1217,9 +1217,14 @@ function ninjaTablesExternalClearPageCaches()
         sg_cachepress_purge_cache();
     }
 
-    // clear cloudflare caches
-    if (defined('CLOUDFLARE_PLUGIN_DIR') && class_exists('CF\WordPress\Hooks')) {
-        (new \CF\WordPress\Hooks())->purgeCacheEverything();
+    // clear cloudflare caches — prefer the current CloudflareAPO namespace,
+    // fall back to the legacy CF namespace for older Cloudflare plugin versions
+    if (defined('CLOUDFLARE_PLUGIN_DIR')) {
+        if (class_exists('CloudflareAPO\WordPress\Hooks')) {
+            (new \CloudflareAPO\WordPress\Hooks())->purgeCacheEverything();
+        } elseif (class_exists('CF\WordPress\Hooks')) {
+            (new \CF\WordPress\Hooks())->purgeCacheEverything();
+        }
     }
 }
 

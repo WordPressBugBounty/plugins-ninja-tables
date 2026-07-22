@@ -4,7 +4,7 @@ Tags: Table, table builder, datatable, tables, spreadsheet
 Requires at least: 6.0
 Requires PHP: 7.4
 Tested up to: 7.0
-Stable tag: 5.2.11
+Stable tag: 5.2.12
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -414,6 +414,16 @@ Ninja Tables [customer support](https://wpmanageninja.com/support-tickets/#/) te
 
 == Changelog ==
 We released several updates for Ninja Tables in the years of development. These include improvements to the existing features and some wonderful additions to help you design tables more effectively.
+
+= 5.2.12 (Date: July 22, 2026) =
+ * Fixed: European decimal format in custom filter.
+ * Fixed: Data create/update dates now save correctly.
+ * Fixed: Frontend date/time picker.
+ * Fixed: Gutenberg block colour preview.
+ * Improved: Large table data exports smoothly to CSV/JSON.
+ * Improved: Updated shortcode limit filter behavior.
+ * Improved: Instant search typing on mobile/touch keyboards.
+ * Compatibility: PHP 8.4 deprecation notices.
 
 = 5.2.11 (Date: July 16, 2026) =
  * Security: Fixes table data handling issue on the frontend.
