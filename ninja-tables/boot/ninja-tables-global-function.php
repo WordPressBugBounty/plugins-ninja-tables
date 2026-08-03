@@ -1244,3 +1244,53 @@ function ninjaTablesRequest()
     return \NinjaTables\Framework\Foundation\App::getInstance('request')->all();
 }
 
+function ninja_tables_maybe_disable_contaminated_pro()
+{
+    $unsafeProFile = WP_PLUGIN_DIR . '/ninja-tables-pro/app/Library/updater/NinjaTableDataSync.php';
+
+    if (!is_file($unsafeProFile)) {
+        return;
+    }
+
+    require_once ABSPATH . 'wp-admin/includes/plugin.php';
+
+    deactivate_plugins(
+        'ninja-tables-pro/ninja-tables-pro.php',
+        true
+    );
+
+    $message = sprintf(
+        __('<strong>Ninja Tables Pro has been deactivated for security reasons.</strong> Delete the existing plugin and install a fresh copy from your %1$sWPManageNinja dashboard%2$s. Your Ninja Tables data will remain intact. We recommend %3$sopening a support ticket%4$s so we can help clean up your site. Read the %5$sincident report%6$s for details.', 'ninja-tables'),
+        '<a class="nt-link" href="' . esc_url(add_query_arg('nt_deactivation_error', '1', 'https://wpmanageninja.com/account/downloads')) . '" target="_blank" rel="noopener noreferrer">',
+        '</a>',
+        '<a class="nt-link" href="' . esc_url(add_query_arg('nt_deactivation_error', '1', 'https://wpmanageninja.com/account/support-tickets/submit-ticket/')) . '" target="_blank" rel="noopener noreferrer">',
+        '</a>',
+        '<a class="nt-link" href="' . esc_url(add_query_arg('nt_deactivation_error', '1', 'https://wpmanageninja.com/security-incident-on-31-july-2026/')) . '" target="_blank" rel="noopener noreferrer">',
+        '</a>'
+    );
+
+    add_filter('ninja_tables_admin_notices', function ($notices) use ($message) {
+        $notices['contaminated_pro_disabled'] = [
+            'type'      => 'permanent',
+            'condition' => true,
+            'callback'  => function () use ($message) {
+                return '<div class="notice notice-error"><p>' . $message . '</p></div>';
+            },
+        ];
+
+        return $notices;
+    });
+
+    add_action('admin_notices', function () use ($message) {
+        if (! current_user_can('activate_plugins')) {
+            return;
+        }
+        ?>
+        <div class="notice notice-error">
+            <p>
+                <?php echo $message; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Admin notice with HTML links ?>
+            </p>
+        </div>
+        <?php
+    });
+}
