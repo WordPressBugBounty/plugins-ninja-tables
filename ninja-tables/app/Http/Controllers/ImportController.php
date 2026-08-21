@@ -643,7 +643,7 @@ class ImportController extends Controller
         if (is_wp_error($tableId)) {
             return $this->sendError([
                 'data' => [
-                    'message' => 'Something Went Wrong When Migrating'
+                    'message' => __('Something Went Wrong When Migrating', 'ninja-tables')
                 ]
             ], 423);
         }

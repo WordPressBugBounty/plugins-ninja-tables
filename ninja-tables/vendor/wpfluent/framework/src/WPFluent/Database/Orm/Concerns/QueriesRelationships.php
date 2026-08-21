@@ -539,7 +539,7 @@ trait QueriesRelationships
      * Add a "belongs to" relationship where clause to the query.
      *
      * @param  \NinjaTables\Framework\Database\Orm\Model  $related
-     * @param  string  $relationship
+     * @param  string  $relationshipName
      * @param  string  $boolean
      * @return $this
      *
@@ -560,22 +560,28 @@ trait QueriesRelationships
         }
 
         if ($relationshipName === null) {
-            $relationshipName = Str::camel(class_basename($related));
+            $relationshipName = Str::camel(static::classBasename($related));
         }
 
         try {
             $relationship = $this->model->{$relationshipName}();
         } catch (BadMethodCallException $e) {
-            throw RelationNotFoundException::make($this->model, $relationshipName);
+            throw RelationNotFoundException::make(
+                $this->model, $relationshipName
+            );
         }
 
         if (! $relationship instanceof BelongsTo) {
-            throw RelationNotFoundException::make($this->model, $relationshipName, BelongsTo::class);
+            throw RelationNotFoundException::make(
+                $this->model, $relationshipName, BelongsTo::class
+            );
         }
 
         $this->whereIn(
             $relationship->getQualifiedForeignKeyName(),
-            $relatedCollection->pluck($relationship->getOwnerKeyName())->toArray(),
+            $relatedCollection->pluck(
+                $relationship->getOwnerKeyName()
+            )->toArray(),
             $boolean,
         );
 
@@ -586,7 +592,7 @@ trait QueriesRelationships
      * Add an "BelongsTo" relationship with an "or where" clause to the query.
      *
      * @param  \NinjaTables\Framework\Database\Orm\Model  $related
-     * @param  string  $relationship
+     * @param  string  $relationshipName
      * @return $this
      *
      * @throws \RuntimeException
@@ -695,7 +701,7 @@ trait QueriesRelationships
      * Get the relation hashed column name for the given column and relation.
      *
      * @param  string  $column
-     * @param  \Illuminate\Database\Eloquent\Relations\Relation<*, *, *>  $relation
+     * @param  \NinjaTables\Framework\Database\Orm\Relations\Relation<*, *, *>  $relation
      * @return string
      */
     protected function getRelationHashedColumn($column, $relation)

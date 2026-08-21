@@ -6,6 +6,7 @@ defined('ABSPATH') || exit;
 
 use NinjaTables\App\App;
 use NinjaTables\App\Helper\ColumnHelper;
+use NinjaTables\App\Helper\Helper;
 use NinjaTables\App\Helper\TableCssHelper;
 use NinjaTables\App\Services\TranslationService;
 use NinjaTables\App\Modules\DataTables\Database\DynamicTableManager;
@@ -206,6 +207,31 @@ class PublicRenderer
             ],
         ];
 
+        // Shortcode filter attributes (FooTable parity). The user-editable seeds
+        // (default_filter / filter_columns) and the hide-search flag are not
+        // security sensitive and travel as plain config. The static sf_* filter
+        // is a locked restriction, so it is signed (see buildLockedFilters).
+        $defaultFilter = Arr::get($tableArray, 'default_filter');
+        if ($defaultFilter === null || $defaultFilter === false) {
+            $defaultFilter = Arr::get($tableArray, 'shortCodeData.filter', '');
+        }
+        if ($defaultFilter) {
+            $dt_config['default_filter'] = (string) $defaultFilter;
+        }
+        if ($filterColumns = Arr::get($settings, 'filter_column')) {
+            $dt_config['filter_columns'] = array_values((array) $filterColumns);
+        }
+        if (Arr::get($tableArray, 'shortCodeData.hide_default_filter') === 'yes') {
+            $dt_config['hide_default_filter'] = true;
+        }
+
+        $lockedFilters = $this->buildLockedFilters($tableArray);
+        if (!empty($lockedFilters)) {
+            $lockedJson = wp_json_encode($lockedFilters);
+            $dt_config['locked_filters']     = $lockedJson;
+            $dt_config['locked_filters_sig'] = wp_hash($lockedJson);
+        }
+
         if ($renderType === 'ajax_table') {
             $dt_config['ajax_url'] = add_query_arg([
                 'action'   => 'ninja_tables_dt_public',
@@ -241,7 +267,9 @@ class PublicRenderer
         $table_vars = apply_filters('ninja_table_rendering_table_vars', $table_vars, $tableId, $tableArray);
 
         if ($renderType === 'legacy_table') {
-            $table_vars['legacy_rows'] = $this->getLegacyRows($tableId, $settings);
+            // Apply the locked sf_* filter server-side so hidden rows are never
+            // shipped to the browser, even though legacy mode renders client-side.
+            $table_vars['legacy_rows'] = $this->getLegacyRows($tableId, $settings, $lockedFilters);
         }
 
         if (!isset(static::$tableCssStatuses[$tableId])) {
@@ -303,6 +331,12 @@ class PublicRenderer
                 }
             }
 
+            // Shortcode-locked sf_* filter: verified from its signature, never trusted
+            // raw from the client. Restricts the whole dataset, so it also drives
+            // recordsTotal (the "unfiltered" universe for this shortcode instance).
+            $lockedFilters = $this->getVerifiedLockedFilters($request);
+            $allFilters    = array_merge($lockedFilters, $customFilters);
+
             $orderColIdx = intval(Arr::get($request, 'order.0.column', 0));
             $orderDirRaw = strtoupper(sanitize_text_field(Arr::get($request, 'order.0.dir', 'asc')));
             $orderDir    = ($orderDirRaw === 'DESC') ? 'DESC' : 'ASC';
@@ -343,14 +377,18 @@ class PublicRenderer
                 wp_send_json($emptyResponse);
             }
 
-            $recordsTotal    = $dynamicRow->count();
+            $recordsTotal    = !empty($lockedFilters)
+                ? $dynamicRow->count(null, $lockedFilters)
+                : $dynamicRow->count();
+            // recordsTotal already reflects the locked filters, so only run a second
+            // count when the user narrowed further via search or a custom filter.
             $recordsFiltered = ($search || !empty($customFilters))
-                ? $dynamicRow->count($search, $customFilters)
+                ? $dynamicRow->count($search, $allFilters)
                 : $recordsTotal;
 
             $page    = ($start / max($length, 1)) + 1;
             $orderBy = $dynamicRow->getTableManager()->sanitizeColumnName($orderByColumn);
-            $rows    = $dynamicRow->getAll($length, $page, $orderBy, $orderDir, $search ?: null, $customFilters);
+            $rows    = $dynamicRow->getAll($length, $page, $orderBy, $orderDir, $search ?: null, $allFilters);
 
             $columnTypeMap = $this->buildColumnTypeMap($tableColumns);
 
@@ -432,7 +470,9 @@ class PublicRenderer
                     }
                 }
             }
-            $columns = array_values(array_intersect($columns, $allowedColumns));
+            // Deduplicate so a request repeating one column can't force repeated
+            // identical DISTINCT scans (and can't vary the cache key by ordering).
+            $columns = array_values(array_unique(array_intersect($columns, $allowedColumns)));
 
             $search = substr(sanitize_text_field(Arr::get($request, 'search', '')), 0, 200);
 
@@ -445,12 +485,30 @@ class PublicRenderer
                 }
             }
 
-            // Cache by full request state so repeated identical lookups (the unfiltered
-            // initial/reset set every visitor requests) don't re-run the DISTINCT scans.
-            // Short, filterable TTL; set the filter to 0 to disable caching.
-            $cacheTtl = (int) apply_filters('ninja_tables_dt_filter_options_cache_ttl', 5 * MINUTE_IN_SECONDS, $tableId);
-            $cacheKey = $cacheTtl > 0
-                ? 'nt_dt_fopts_' . md5($tableId . '|' . $search . '|' . wp_json_encode($customFilters) . '|' . implode(',', $columns))
+            // Whether the caller supplied filters of their own (before we add the
+            // server-derived locked filter) decides cacheability below.
+            $hasUserFilters = !empty($customFilters);
+
+            // Keep option lists inside the shortcode-locked (sf_*) subset.
+            $lockedFilters = $this->getVerifiedLockedFilters($request);
+            if (!empty($lockedFilters)) {
+                $customFilters = array_merge($lockedFilters, $customFilters);
+            }
+
+            // Cache ONLY the canonical, high-reuse state — empty search and no
+            // user-supplied filters (the initial/reset set every visitor requests) —
+            // so an unauthenticated caller can't force unbounded transient writes by
+            // varying search/ninja_filters. Columns are sorted so equivalent sets share
+            // one key. Short, filterable TTL; set the filter to 0 to disable caching.
+            sort($columns);
+            $cacheTtl    = (int) apply_filters('ninja_tables_dt_filter_options_cache_ttl', 5 * MINUTE_IN_SECONDS, $tableId);
+            $isCanonical = ($search === '' && !$hasUserFilters);
+            // The version is bumped by ninjaTablesClearTableDataCache() on every
+            // mutation, so a row edit changes the key and the stale options list
+            // is never re-read (FIX-PLAN #6).
+            $cacheVersion = (int) get_post_meta($tableId, '_nt_dt_fopts_version', true);
+            $cacheKey    = ($cacheTtl > 0 && $isCanonical)
+                ? 'nt_dt_fopts_' . md5($tableId . '|' . $cacheVersion . '|' . wp_json_encode($lockedFilters) . '|' . implode(',', $columns))
                 : '';
             if ($cacheKey) {
                 $cached = get_transient($cacheKey);
@@ -524,7 +582,7 @@ class PublicRenderer
             }
 
             if ($type === 'button' && is_string($value)) {
-                $value = esc_url($value);
+                $value = Helper::sanitizeLinkValue($value);
                 continue;
             }
 
@@ -711,7 +769,67 @@ class PublicRenderer
         return $formatted;
     }
 
-    private function getLegacyRows($tableId, $settings)
+    /**
+     * Translate the static sf_* shortcode attributes into DynamicRow filter
+     * entries. Returns [] when the table/shortcode has no static filter (the
+     * free build, which never registers sf_*, always lands here).
+     */
+    private function buildLockedFilters($tableArray)
+    {
+        $shortCodeData = Arr::get($tableArray, 'shortCodeData', []);
+        $sfColumn      = trim((string) Arr::get($shortCodeData, 'sf_column', ''));
+        $sfFilter      = Arr::get($shortCodeData, 'sf_filter', '');
+        $sfMatch       = Arr::get($shortCodeData, 'sf_match', 'equal');
+
+        if ($sfColumn === '' || $sfFilter === '' || $sfFilter === false) {
+            return [];
+        }
+
+        // Dynamic placeholders (current user, date, …). No-op without Pro.
+        $sfFilter = apply_filters('ninja_parse_placeholder', $sfFilter);
+
+        $operatorMap = [
+            'equal'      => 'exact',
+            'contains'   => 'like',
+            'startswith' => 'starts_with',
+            'lt'         => 'lt',
+            'gt'         => 'gt',
+        ];
+
+        return [[
+            'column'   => $sfColumn,
+            'operator' => Arr::get($operatorMap, $sfMatch, 'exact'),
+            'value'    => (string) $sfFilter,
+        ]];
+    }
+
+    /**
+     * Read the signed locked-filter payload off the AJAX request and return it
+     * only when its signature matches. Fails closed (returns []) on any mismatch
+     * so a tampered payload can never widen the visible dataset.
+     */
+    private function getVerifiedLockedFilters($request)
+    {
+        $raw = Arr::get($request, 'ninja_locked_filters', '');
+        $sig = Arr::get($request, 'ninja_locked_filters_sig', '');
+
+        // Guard against array/non-string input (e.g. ninja_locked_filters[]=x),
+        // which would otherwise trip a TypeError inside wp_hash() on PHP 8.
+        if (!is_string($raw) || !is_string($sig) || $raw === '' || $sig === '') {
+            return [];
+        }
+
+        $raw = wp_unslash($raw);
+        if (!hash_equals(wp_hash($raw), $sig)) {
+            return [];
+        }
+
+        $decoded = json_decode($raw, true);
+
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    private function getLegacyRows($tableId, $settings, $lockedFilters = [])
     {
         $dynamicRow = new DynamicRow($tableId);
         $dataProvider = ninja_table_get_data_provider($tableId);
@@ -723,8 +841,9 @@ class PublicRenderer
         $defaultSorting = Arr::get($settings, 'default_sorting', 'new_first');
         $orderDir       = ($defaultSorting === 'new_first') ? 'DESC' : 'ASC';
 
-        $total = $dynamicRow->count();
-        $rows  = $dynamicRow->getAll($total ?: 1000, 1, DynamicTableManager::COL_POSITION, $orderDir);
+        $lockedFilters = is_array($lockedFilters) ? $lockedFilters : [];
+        $total = $dynamicRow->count(null, $lockedFilters);
+        $rows  = $dynamicRow->getAll($total ?: 1000, 1, DynamicTableManager::COL_POSITION, $orderDir, null, $lockedFilters);
 
         $tableColumns  = ninja_table_get_table_columns($tableId, 'public');
         $columnTypeMap = $this->buildColumnTypeMap($tableColumns ?: []);

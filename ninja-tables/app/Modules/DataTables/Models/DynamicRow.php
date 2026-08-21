@@ -347,7 +347,7 @@ class DynamicRow
         $filters = array_slice($filters, 0, 20);
 
         $existingColumns = $this->tableManager->getExistingColumns();
-        $allowedOperators = ['like', 'exact', 'starts_with', 'not_equal', 'gte', 'lte', 'range', 'multi_or'];
+        $allowedOperators = ['like', 'exact', 'starts_with', 'not_equal', 'gte', 'lte', 'gt', 'lt', 'range', 'multi_or'];
 
         foreach ($filters as $filter) {
             if (!is_array($filter)) {
@@ -426,6 +426,21 @@ class DynamicRow
                 $val      = $this->normalizeNumericBound(Arr::get($filter, 'value', 0), $column);
                 $castExpr = $parentQuery->raw($this->numericCastExpression($colName, $column));
                 $query->where($castExpr, '<=', $val);
+                break;
+
+            // Strict comparisons (used by the sf_match=gt|lt static shortcode filter).
+            case 'gt':
+                $column   = $this->getColumnBySanitizedName($colName);
+                $val      = $this->normalizeNumericBound(Arr::get($filter, 'value', 0), $column);
+                $castExpr = $parentQuery->raw($this->numericCastExpression($colName, $column));
+                $query->where($castExpr, '>', $val);
+                break;
+
+            case 'lt':
+                $column   = $this->getColumnBySanitizedName($colName);
+                $val      = $this->normalizeNumericBound(Arr::get($filter, 'value', 0), $column);
+                $castExpr = $parentQuery->raw($this->numericCastExpression($colName, $column));
+                $query->where($castExpr, '<', $val);
                 break;
 
             case 'range':

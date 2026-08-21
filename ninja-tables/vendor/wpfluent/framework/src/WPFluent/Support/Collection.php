@@ -429,7 +429,7 @@ class Collection implements ArrayAccess, CanBeEscapedWhenCastToString, Enumerabl
     /**
      * Get a flattened array of the items in the collection.
      *
-     * @param  int  $depth
+     * @param  int|float  $depth
      * @return static
      */
     public function flatten($depth = INF)
@@ -491,7 +491,7 @@ class Collection implements ArrayAccess, CanBeEscapedWhenCastToString, Enumerabl
             return $this->items[$key];
         }
 
-        $this->offsetSet($key, $value = Helper::value($value)); // @need_fix
+        $this->offsetSet($key, $value = Helper::value($value));
 
         return $value;
     }
@@ -624,6 +624,7 @@ class Collection implements ArrayAccess, CanBeEscapedWhenCastToString, Enumerabl
             return implode($glue ?? '', $this->pluck($value)->all());
         }
 
+        // @phpstan-ignore-next-line
         return implode($value ?? '', $this->items);
     }
 

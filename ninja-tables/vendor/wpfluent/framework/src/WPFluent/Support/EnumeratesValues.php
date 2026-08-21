@@ -447,7 +447,7 @@ trait EnumeratesValues
     public function when($value, ?callable $callback = null, ?callable $default = null)
     {
         if (! $callback) {
-            return new HigherOrderWhenProxy($this, $value);
+            return new HigherOrderWhenProxy($value);
         }
 
         if ($value) {
@@ -966,8 +966,10 @@ trait EnumeratesValues
         } elseif ($items instanceof Traversable) {
             return iterator_to_array($items);
         } elseif (function_exists('enum_exists')) {
-            if ($items instanceof \UnitEnum) {
-                return [$items];
+            if (class_exists('UnitEnum')) {
+                if ($items instanceof \UnitEnum) {
+                    return [$items];
+                }
             }
         }
 

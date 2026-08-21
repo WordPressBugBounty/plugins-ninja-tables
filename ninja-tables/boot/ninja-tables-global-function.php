@@ -185,6 +185,17 @@ function ninjaTablesClearTableDataCache($tableId)
     update_post_meta($tableId, '_external_cached_data', false);
     update_post_meta($tableId, '_last_external_cached_time', false);
     update_post_meta($tableId, '__ninja_cached_table_html', false);
+
+    // Bump the DataTables filter-options cache version so the renderer computes
+    // a fresh transient key after any mutation. The old nt_dt_fopts_* transients
+    // become unreachable and expire on their own TTL — no key to hunt down. If
+    // this meta is ever unreadable the key simply never stabilises, which is a
+    // cache miss (correct data, just uncached), never stale options.
+    update_post_meta(
+        $tableId,
+        '_nt_dt_fopts_version',
+        (int) get_post_meta($tableId, '_nt_dt_fopts_version', true) + 1
+    );
 }
 
 /**
@@ -435,7 +446,7 @@ if ( ! function_exists('ninjaTablesGetPostStatuses')) {
             ['key' => 'publish', 'label' => 'Publish'],
             ['key' => 'pending', 'label' => 'Pending'],
             ['key' => 'draft', 'label' => 'Draft'],
-            ['key' => 'auto-draft', 'label' => 'Auto Draft'],
+            ['key' => 'auto-draft', 'label' => __('Auto Draft', 'ninja-tables')],
             ['key' => 'future', 'label' => 'Future'],
             ['key' => 'private', 'label' => 'Private'],
             ['key' => 'inherit', 'label' => 'Inherit'],
