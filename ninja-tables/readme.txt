@@ -4,7 +4,7 @@ Tags: Table, table builder, datatable, tables, spreadsheet
 Requires at least: 6.0
 Requires PHP: 7.4
 Tested up to: 7.1
-Stable tag: 5.2.14
+Stable tag: 5.2.15
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -415,7 +415,7 @@ Ninja Tables [customer support](https://wpmanageninja.com/support-tickets/#/) te
 == Changelog ==
 We released several updates for Ninja Tables in the years of development. These include improvements to the existing features and some wonderful additions to help you design tables more effectively.
 
-= 5.2.14 (Date: August 21, 2026) =
+= 5.2.15 (Date: August 21, 2026) =
 * Fixed: File upload issues with Media Library and plugin uploads.
 * Fixed: AJAX tables not rendering correctly in Elementor editor preview.
 * Fixed: DataTables frontend editing: added data permission for public users.
