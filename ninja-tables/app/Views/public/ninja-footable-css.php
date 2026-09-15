@@ -15,10 +15,12 @@
     background-color: <?php echo esc_attr($colors['table_color_secondary']); ?> !important;
     }
 
-    <?php echo esc_attr($css_prefix);?> tbody tr:hover td span.fooicon-plus:before {
+    <?php echo esc_attr($css_prefix);?> tbody tr:hover td span.fooicon-plus:before,
+    <?php echo esc_attr($css_prefix);?> tbody tr:focus-within td span.fooicon-plus:before {
     background-color: <?php echo esc_attr($colors['table_color_secondary_hover']) ?> !important;
     }
-    <?php echo esc_attr($css_prefix);?> tbody tr:hover td span.fooicon-minus:before {
+    <?php echo esc_attr($css_prefix);?> tbody tr:hover td span.fooicon-minus:before,
+    <?php echo esc_attr($css_prefix);?> tbody tr:focus-within td span.fooicon-minus:before {
     background-color: <?php echo esc_attr($colors['table_color_secondary_hover']) ?> !important;
     }
 

@@ -10,30 +10,16 @@ use NinjaTables\Framework\Support\Sanitizer;
 
 class SettingsController extends Controller
 {
-    private $cptName = 'ninja-table';
-
-    private function assertNinjaTable($id)
-    {
-        if (get_post_type($id) !== $this->cptName) {
-            return $this->sendError([
-                'message' => __('No Table Found', 'ninja-tables'),
-                'route'   => 'home',
-            ], 423);
-        }
-
-        return null;
-    }
-
     public function getTableSettings(Request $request, $id)
     {
         $tableID = intval($id);
         $table   = get_post($tableID);
 
-        if ( ! $table || $table->post_type != $this->cptName) {
-            $this->sendError(array(
+        if (!$table || $table->post_type != self::TABLE_POST_TYPE) {
+            return $this->sendError([
                 'message' => __('No Table Found', 'ninja-tables'),
-                'route'   => 'home'
-            ), 423);
+                'route'   => 'home',
+            ], 423);
         }
         $provider = ninja_table_get_data_provider($table->ID);
 
@@ -57,7 +43,7 @@ class SettingsController extends Controller
     {
         $tableId         = intval($id);
 
-        if ($response = $this->assertNinjaTable($tableId)) {
+        if ($response = $this->assertNinjaTable($tableId, __('No Table Found', 'ninja-tables'), ['route' => 'home'])) {
             return $response;
         }
 
@@ -147,7 +133,7 @@ class SettingsController extends Controller
     {
         $tableId             = absint($id);
 
-        if ($response = $this->assertNinjaTable($tableId)) {
+        if ($response = $this->assertNinjaTable($tableId, __('No Table Found', 'ninja-tables'), ['route' => 'home'])) {
             return $response;
         }
 
@@ -191,7 +177,7 @@ class SettingsController extends Controller
         ninja_tables_allowed_css_properties();
         $tableId        = absint($id);
 
-        if ($response = $this->assertNinjaTable($tableId)) {
+        if ($response = $this->assertNinjaTable($tableId, __('No Table Found', 'ninja-tables'), ['route' => 'home'])) {
             return $response;
         }
 
@@ -209,7 +195,7 @@ class SettingsController extends Controller
     {
         $tableId = intval($id);
 
-        if ($response = $this->assertNinjaTable($tableId)) {
+        if ($response = $this->assertNinjaTable($tableId, __('No Table Found', 'ninja-tables'), ['route' => 'home'])) {
             return $response;
         }
 
@@ -230,7 +216,7 @@ class SettingsController extends Controller
     {
         $tableId = intval($id);
 
-        if ($response = $this->assertNinjaTable($tableId)) {
+        if ($response = $this->assertNinjaTable($tableId, __('No Table Found', 'ninja-tables'), ['route' => 'home'])) {
             return $response;
         }
 

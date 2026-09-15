@@ -114,11 +114,15 @@ class Post extends Model
         // Duplicate table rows.
         $itemsTable = $wpdb->prefix . esc_sql(ninja_tables_db_table_name());
 
-        $sql = "INSERT INTO $itemsTable (`position`, `table_id`, `owner_id`, `settings`, `attribute`, `value`, `created_at`, `updated_at`)";
-        $sql .= " SELECT `position`, $newPostId, `owner_id`, `settings`, `attribute`, `value`, `created_at`, `updated_at` FROM $itemsTable";
-        $sql .= " WHERE `table_id` = $oldPostId";
-
-        $wpdb->query($sql); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.PreparedSQL.NotPrepared
+        $wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.DirectQuery
+            $wpdb->prepare(
+                "INSERT INTO {$itemsTable} (`position`, `table_id`, `owner_id`, `settings`, `attribute`, `value`, `created_at`, `updated_at`)
+                 SELECT `position`, %d, `owner_id`, `settings`, `attribute`, `value`, `created_at`, `updated_at` FROM {$itemsTable}
+                 WHERE `table_id` = %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+                $newPostId,
+                $oldPostId
+            )
+        );
     }
 
     public static function updatedSettings($tableId, $rawColumns, $tablePreference)

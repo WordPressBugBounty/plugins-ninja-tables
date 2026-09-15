@@ -3,10 +3,17 @@
 namespace NinjaTables\App\Hooks\Handlers;
 
 use NinjaTables\App\App;
+use NinjaTables\App\Services\Vite;
 use NinjaTables\App\Modules\DataProviders\NinjaFooTable;
 
 class PreviewHandler
 {
+    public function register()
+    {
+        add_action('wp_loaded', [$this, 'defaultTable']);
+        add_action('wp_loaded', [$this, 'dragAndDropTable']);
+    }
+
     public function defaultTable()
     {
         $tableId = null;
@@ -19,8 +26,7 @@ class PreviewHandler
             if (ninja_table_admin_role()) {
                 do_action('ninja_tables_will_render_table', $tableId);
 
-                wp_enqueue_style('ninja-tables-preview',
-                    NINJA_TABLES_DIR_URL . "assets/css/ninja-tables-preview.css", [], NINJA_TABLES_VERSION);
+                Vite::enqueueStyle('ninja-tables-preview', 'css/ninja-tables-preview.css');
 
                 NinjaFooTable::enqueuePublicCss();
                 $table = get_post($tableId);
@@ -44,8 +50,7 @@ class PreviewHandler
 
                 do_action('ninja_tables_will_render_table', $tableId);
 
-                wp_enqueue_style('ninja-tables-preview',
-                    NINJA_TABLES_DIR_URL . "assets/css/ninja-tables-preview.css", [], NINJA_TABLES_VERSION);
+                Vite::enqueueStyle('ninja-tables-preview', 'css/ninja-tables-preview.css');
 
                 $table   = get_post($tableId);
 

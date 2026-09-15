@@ -6,6 +6,12 @@ use NinjaTables\Framework\Support\Arr;
 
 class AjaxHandler
 {
+    public function register()
+    {
+        add_action('wp_ajax_wp_ajax_ninja_tables_public_action', [$this, 'registerAjaxRoutes'], 100);
+        add_action('wp_ajax_nopriv_wp_ajax_ninja_tables_public_action', [$this, 'registerAjaxRoutes'], 100);
+    }
+
     public function registerAjaxRoutes()
     {
         $validRoutes = array(
@@ -83,9 +89,7 @@ class AjaxHandler
 
         $formatted_data = apply_filters('ninja_tables_get_public_data', $formatted_data, $tableId);
 
-        $dataProvider = ninja_table_get_data_provider($tableId);
-
-        if ($dataProvider == 'default') {
+        if (ninja_tables_provider_executes_shortcodes($tableId)) {
             $newStyledData = [];
             $counter       = $skip;
             foreach ($formatted_data as $index => $datum) {

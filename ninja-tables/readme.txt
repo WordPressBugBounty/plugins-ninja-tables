@@ -4,7 +4,7 @@ Tags: Table, table builder, datatable, tables, spreadsheet
 Requires at least: 6.0
 Requires PHP: 7.4
 Tested up to: 7.1
-Stable tag: 5.2.15
+Stable tag: 5.2.17
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -415,7 +415,17 @@ Ninja Tables [customer support](https://wpmanageninja.com/support-tickets/#/) te
 == Changelog ==
 We released several updates for Ninja Tables in the years of development. These include improvements to the existing features and some wonderful additions to help you design tables more effectively.
 
-= 5.2.15 (Date: August 21, 2026) =
+= 5.2.17 (Date: September 15, 2026) =
+* Added: DataTables now supports Google Sheets and CSV files.
+* Fixed: DataTables custom filter when visitor search was disabled.
+* Improved: Sync Interval field now notes that the interval can be changed later.
+* Improved: Translatable text across the plugin.
+* Improved: Admin UI (moved admin notifications to side toasts, Select border and others).
+* Improved: Frontend UI (proper spacing for FooTable custom filter checkboxes and radio buttons).
+* Security: Added a guard against a self-referencing cell shortcode. Props to Jakub Herman
+* Security: Added proper guards to enforce permission policy coverage.
+
+= 5.2.14 (Date: August 21, 2026) =
 * Fixed: File upload issues with Media Library and plugin uploads.
 * Fixed: AJAX tables not rendering correctly in Elementor editor preview.
 * Fixed: DataTables frontend editing: added data permission for public users.

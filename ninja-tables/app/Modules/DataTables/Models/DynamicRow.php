@@ -4,6 +4,7 @@ namespace NinjaTables\App\Modules\DataTables\Models;
 
 use NinjaTables\App\Models\Model;
 use NinjaTables\App\Modules\DataTables\Database\DynamicTableManager;
+use NinjaTables\App\Modules\DataTables\Query\NumericFilter;
 use NinjaTables\Framework\Support\Arr;
 
 class DynamicRow
@@ -509,24 +510,9 @@ class DynamicRow
      * @param array|null $column
      * @return float
      */
-    protected function normalizeNumericBound($value, $column)
+protected function normalizeNumericBound($value, $column)
     {
-        $value = preg_replace('/[^0-9.,\-]/', '', (string) $value);
-
-        // Canonical dot-decimal (no comma) is the expected form.
-        if (strpos($value, ',') === false) {
-            return floatval($value);
-        }
-
-        // Fallback: a comma-decimal display value slipped through.
-        if ($column && Arr::get($column, 'decimalSeparator') === ',') {
-            $value = str_replace('.', '', $value);
-            $value = str_replace(',', '.', $value);
-        } else {
-            $value = str_replace(',', '', $value);
-        }
-
-        return floatval($value);
+        return NumericFilter::normalizeBound($value, $column);
     }
 
     /**
@@ -541,17 +527,9 @@ class DynamicRow
      * @param array|null $column
      * @return string
      */
-    protected function numericCastExpression($colName, $column)
+protected function numericCastExpression($colName, $column)
     {
-        if ($column && Arr::get($column, 'decimalSeparator') === ',') {
-            // Strip the '.' thousands separator, turn the ',' decimal into '.'.
-            $expr = "REPLACE(REPLACE(`{$colName}`, '.', ''), ',', '.')";
-        } else {
-            // Strip the ',' thousands separator.
-            $expr = "REPLACE(`{$colName}`, ',', '')";
-        }
-
-        return "CAST({$expr} AS DECIMAL(20,6))";
+        return NumericFilter::castExpression($colName, $column);
     }
 
     /**

@@ -12,18 +12,6 @@ use NinjaTables\App\Models\NinjaTableItem;
 
 class TablesController extends Controller
 {
-    private $cptName = 'ninja-table';
-
-    private function assertNinjaTable($id)
-    {
-        if (get_post_type($id) !== $this->cptName) {
-            return $this->sendError([
-                'message' => __('Invalid table.', 'ninja-tables'),
-            ], 423);
-        }
-        return null;
-    }
-
     public function index(Request $request)
     {
         $perPage = intval(Arr::get($request->all(), 'per_page')) ?: 10;
@@ -39,7 +27,7 @@ class TablesController extends Controller
             'offset'         => $skip,
             'orderby'        => Sanitizer::sanitizeTextField(Arr::get($request->all(), 'orderBy')),
             'order'          => Sanitizer::sanitizeTextField(Arr::get($request->all(), 'order')),
-            'post_type'      => $this->cptName,
+            'post_type'      => self::TABLE_POST_TYPE,
             'post_status'    => $postStatus,
         );
 
@@ -70,7 +58,7 @@ class TablesController extends Controller
 
         $postId = intval(Arr::get($request->all(), 'tableId'));
 
-        if ($postId && get_post_type($postId) !== $this->cptName) {
+        if ($postId && get_post_type($postId) !== self::TABLE_POST_TYPE) {
             return $this->sendError([
                 'message' => __('Invalid table.', 'ninja-tables')
             ], 423);
@@ -82,7 +70,7 @@ class TablesController extends Controller
         $attributes = array(
             'post_title'   => Sanitizer::sanitizeTextField(Arr::get($request->all(), 'post_title')),
             'post_content' => wp_kses_post(Arr::get($request->all(), 'post_content')),
-            'post_type'    => $this->cptName,
+            'post_type'    => self::TABLE_POST_TYPE,
             'post_status'  => 'publish'
         );
 
@@ -203,8 +191,9 @@ class TablesController extends Controller
         }
 
         return (string)$this->app->view->make('public/table-inner-html', array(
-            'table_columns' => $formattedColumns,
-            'table_rows'    => $formatted_data
+            'table_columns'      => $formattedColumns,
+            'table_rows'         => $formatted_data,
+            'execute_shortcodes' => ninja_tables_provider_executes_shortcodes($tableId)
         ));
     }
 
