@@ -7,6 +7,7 @@ if (!defined('ABSPATH')) {
 }
 
 use NinjaTables\App\Helper\Pro;
+use NinjaTables\Framework\Support\Arr;
 
 /**
  * Table settings, columns, providers and plugin-level options.
@@ -34,7 +35,59 @@ class TableSettings
             $tableColumns = array();
         }
 
+        $tableColumns = self::normalizeColumns($tableColumns);
+
         return apply_filters('ninja_get_table_columns_' . $scope, $tableColumns, $tableId);
+    }
+
+    /**
+     * Fill in the column keys older import paths left out.
+     *
+     * Imported tables were stored with only key/name/breakpoints, so consumers that
+     * read the meta straight through (the Gutenberg block, the Design preview) saw an
+     * undefined column type where PHP renderers quietly defaulted it. Normalising here
+     * gives every consumer the same shape a natively-created table has, without a
+     * migration. Existing values are never overwritten.
+     *
+     * @param array $columns
+     *
+     * @return array
+     */
+    protected static function normalizeColumns($columns)
+    {
+        foreach ($columns as $index => $column) {
+            if ( ! is_array($column)) {
+                continue;
+            }
+
+            if (empty($column['data_type'])) {
+                $column['data_type'] = 'text';
+            }
+
+            // native tables store null here; imports stored '', which JS consumers
+            // treat as a real (empty-named) breakpoint rather than "none"
+            if ( ! isset($column['breakpoints']) || $column['breakpoints'] === '') {
+                $column['breakpoints'] = null;
+            }
+
+            foreach (['dateFormat', 'header_html_content', 'contentAlign', 'textAlign'] as $key) {
+                if ( ! array_key_exists($key, $column)) {
+                    $column[$key] = null;
+                }
+            }
+
+            if ( ! array_key_exists('enable_html_content', $column)) {
+                $column['enable_html_content'] = false;
+            }
+
+            if ( ! array_key_exists('original_name', $column) && isset($column['key'])) {
+                $column['original_name'] = $column['key'];
+            }
+
+            $columns[$index] = $column;
+        }
+
+        return $columns;
     }
 
     public static function getTableSettings($tableId, $scope = 'public')
@@ -106,6 +159,56 @@ class TableSettings
         $settings = wp_parse_args($settings, $defaults);
 
         return apply_filters('ninja_tables/get_default_ninja_table_settings', $settings);
+    }
+
+    /**
+     * Legacy FooTable style class (Semantic UI and Bootstrap 3/4 keys) → DataTables equivalent.
+     * 'hide_horizonal_borders' is the (misspelled) key the FooTable style list stores.
+     */
+    const DT_LEGACY_CSS_CLASS_MAP = array(
+        'selectable'              => 'dt_hover',
+        'striped'                 => 'dt_striped',
+        'celled'                  => 'dt_bordered',
+        'hide_horizonal_borders'  => 'dt_hide_horizontal_borders',
+        'hide_horizontal_borders' => 'dt_hide_horizontal_borders',
+        'hide_vertical_borders'   => 'dt_hide_vertical_borders',
+        'compact'                 => 'dt_compact',
+        'vertical_centered'       => 'dt_vertical_centered',
+        // Bootstrap 3/4 FooTable style keys (Default Appearance can store these)
+        'table-hover'             => 'dt_hover',
+        'table-striped'           => 'dt_striped',
+        'table-bordered'          => 'dt_bordered',
+        'table-sm'                => 'dt_compact',
+        'table-condensed'         => 'dt_compact',
+    );
+
+    /**
+     * DataTables tables are seeded with FooTable style names (defaults / Default Appearance),
+     * which the DataTables stylesheet does not know. Map them to dt_* and drop the rest.
+     * No-op for FooTable tables.
+     */
+    public static function normalizeDataTablesCssClasses($settings)
+    {
+        if (!is_array($settings) || Arr::get($settings, 'library') !== 'datatables') {
+            return $settings;
+        }
+
+        $normalized = array();
+        foreach ((array) Arr::get($settings, 'css_classes', array()) as $class) {
+            if (!is_string($class) || $class === '') {
+                continue;
+            }
+            if (isset(self::DT_LEGACY_CSS_CLASS_MAP[$class])) {
+                $class = self::DT_LEGACY_CSS_CLASS_MAP[$class];
+            } elseif (strpos($class, 'dt_') !== 0) {
+                continue; // FooTable-only style with no DataTables equivalent
+            }
+            $normalized[] = $class;
+        }
+
+        $settings['css_classes'] = array_values(array_unique($normalized));
+
+        return $settings;
     }
 
     public static function getDataProvider($tableId)

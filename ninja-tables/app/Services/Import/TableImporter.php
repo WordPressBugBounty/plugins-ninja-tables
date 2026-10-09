@@ -6,7 +6,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-use NinjaTables\App\Library\Csv\Reader;
+use NinjaTables\App\Support\Csv;
 use NinjaTables\App\Modules\DataTables\Database\DynamicTableManager;
 use NinjaTables\App\Services\Table\Engine;
 use NinjaTables\App\Services\Table\RowWriter;
@@ -127,6 +127,7 @@ class TableImporter
 
         $settings            = $content['settings'];
         $settings['library'] = $renderEngine;
+        $settings            = ninja_tables_normalize_dt_css_classes($settings);
         update_post_meta($tableId, '_ninja_table_settings', $settings);
 
         $header = [];
@@ -224,7 +225,9 @@ class TableImporter
     {
         $columns = [];
         foreach ($header as $key => $name) {
-            $columns[] = ['key' => $key, 'name' => $name, 'breakpoints' => ''];
+            // keep in sync with BaseAdapter::initTableConfiguration(); a missing
+            // data_type leaves JS consumers with an undefined column type
+            $columns[] = ['key' => $key, 'name' => $name, 'breakpoints' => '', 'data_type' => 'text'];
         }
 
         if ($renderEngine === 'datatables') {
@@ -236,6 +239,7 @@ class TableImporter
         $settings                = ninja_table_get_table_settings($tableId, 'admin');
         $settings['library']     = $renderEngine;
         $settings['render_type'] = $renderType;
+        $settings                = ninja_tables_normalize_dt_css_classes($settings);
         update_post_meta($tableId, '_ninja_table_settings', $settings);
 
         ninjaTablesClearTableDataCache($tableId);
@@ -317,10 +321,10 @@ class TableImporter
             if ($convertFromLatin1) {
                 $data = mb_convert_encoding(file_get_contents($tmpName), 'UTF-8', 'ISO-8859-1');
 
-                return Reader::createFromString($data)->fetchAll();
+                return Csv::readerFromString($data)->fetchAll();
             }
 
-            return Reader::createFromPath($tmpName, 'r')->fetchAll();
+            return Csv::reader($tmpName)->fetchAll();
         } catch (\Throwable $exception) {
             // phpcs:disable WordPress.Security.EscapeOutput.ExceptionNotEscaped -- messages are JSON payload for the Vue app, not HTML output
             throw new ImportException(['data' => [

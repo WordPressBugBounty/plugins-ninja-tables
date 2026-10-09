@@ -91,12 +91,12 @@ class Vite
     {
         if (!in_array('vite-client', static::$moduleHandles)) {
             static::$moduleHandles[] = 'vite-client';
-            wp_enqueue_script('vite-client', static::DEV_URL . '@vite/client', [], null, false);
+            wp_enqueue_script('vite-client', static::DEV_URL . '@vite/client', [], null, false); // phpcs:ignore WordPress.WP.EnqueuedResourceParameters.MissingVersion -- dev server only; Vite handles cache busting
         }
 
         $deps[] = 'vite-client';
         static::$moduleHandles[] = $handle;
-        wp_enqueue_script($handle, static::DEV_URL . $source, $deps, null, $inFooter);
+        wp_enqueue_script($handle, static::DEV_URL . $source, $deps, null, $inFooter); // phpcs:ignore WordPress.WP.EnqueuedResourceParameters.MissingVersion -- dev server only; Vite handles cache busting
 
         if (!static::$filterAdded) {
             static::$filterAdded = true;

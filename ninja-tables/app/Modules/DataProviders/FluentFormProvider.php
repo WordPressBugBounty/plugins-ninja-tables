@@ -490,7 +490,7 @@ class FluentFormProvider extends BaseProvider
 
         $total     = $query->count();
         $responses = $query->get();
-        $responses = apply_filters('fluentform/get_raw_responses', $responses, $formId);
+        $responses = apply_filters('fluentform/get_raw_responses', $responses, $formId); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- intentionally fires Fluent Forms' own filter
 
         $form = wpFluent()->table('fluentform_forms')->find($formId);
         $data = \FluentForm\App\Modules\Form\FormDataParser::parseFormEntries($responses, $form);

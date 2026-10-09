@@ -58,7 +58,9 @@ class SettingsController extends Controller
         }
 
         if (Arr::get($request->all(), 'table_settings', [])) {
-            $tablePreference = ninja_tables_sanitize_array($request->table_settings);
+            $tablePreference = ninja_tables_normalize_dt_css_classes(
+                ninja_tables_sanitize_array($request->table_settings)
+            );
         }
 
         $data = Post::updatedSettings($tableId, $rawColumns, $tablePreference);
@@ -141,6 +143,15 @@ class SettingsController extends Controller
             'csv'              => array(
                 'status'     => 'no',
                 'label'      => 'CSV',
+                'all_rows'   => 'no',
+                'bg_color'   => 'rgb(0,0,0)',
+                'text_color' => 'rgb(255,255,255)'
+            ),
+            // Frontend Excel button (rendered by Pro; offered in the admin only when
+            // Pro reports support via ninja_tables_frontend_xlsx_button_supported).
+            'xlsx'             => array(
+                'status'     => 'no',
+                'label'      => 'Excel',
                 'all_rows'   => 'no',
                 'bg_color'   => 'rgb(0,0,0)',
                 'text_color' => 'rgb(255,255,255)'

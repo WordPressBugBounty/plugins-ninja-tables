@@ -9,6 +9,7 @@ use NinjaTables\Framework\Support\Arr;
 
 class DynamicRow
 {
+    private $restrictOwnerId = null;
     protected $tableId;
 
     protected $tableManager;
@@ -20,6 +21,30 @@ class DynamicRow
         $this->tableId      = intval($tableId);
         $this->tableManager = new DynamicTableManager($tableId);
         $this->columns      = get_post_meta($tableId, '_ninja_table_columns', true) ?: [];
+    }
+
+    /**
+     * When set to an owner id, getAll() and count() return only that owner's
+     * rows. Used to enforce a table's "own data only" setting on the public
+     * feed; pass -1 for an anonymous viewer so nothing matches.
+     *
+     * @param int|null $ownerId
+     * @return $this
+     */
+    public function restrictToOwner($ownerId)
+    {
+        $this->restrictOwnerId = ($ownerId === null) ? null : (int) $ownerId;
+
+        return $this;
+    }
+
+    private function applyOwnerScope($query)
+    {
+        if ($this->restrictOwnerId !== null) {
+            $query->where(DynamicTableManager::COL_OWNER_ID, $this->restrictOwnerId);
+        }
+
+        return $query;
     }
 
     public function getTableManager()
@@ -152,6 +177,7 @@ class DynamicRow
 
         $this->applySearchConditions($query, $search);
         $this->applyCustomFilters($query, $customFilters);
+        $this->applyOwnerScope($query);
 
         $query->orderBy($orderBy, $order);
 
@@ -178,6 +204,7 @@ class DynamicRow
 
         $this->applySearchConditions($query, $search);
         $this->applyCustomFilters($query, $customFilters);
+        $this->applyOwnerScope($query);
 
         return (int) $query->count();
     }

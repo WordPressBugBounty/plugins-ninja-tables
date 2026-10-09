@@ -342,6 +342,12 @@ class AdminMenuHandler
             'hasFluentForm'            => $hasFluentFrom,
             'hasTablePress'            => $hasTablePress,
             'hasSupsystic'             => $hasSupsystic,
+            'maxUploadSize'            => size_format(wp_max_upload_size()), // shown next to the Excel import picker
+            'maxUploadBytes'           => wp_max_upload_size(),
+            'canExportXlsx'            => class_exists('ZipArchive'), // Excel export needs the PHP Zip extension
+            // Pro versions with a frontend Excel button return true; older Pro would draw
+            // the button with no click handler, so the setting stays hidden for them.
+            'hasXlsxFrontendButton'    => (bool) apply_filters('ninja_tables_frontend_xlsx_button_supported', false),
             'isFluentFormUpdated'      => $isFluentFromUpdated,
             'hasAdvancedFilters'       => class_exists('NinjaTablesPro\App\Hooks\Handlers\CustomFilterHandler'),
             'hasSortable'              => Pro::sortable(),

@@ -286,7 +286,9 @@ class DataTablesRenderer extends AbstractTableRenderer
         if ($extra = trim(Arr::get($settings, 'extra_css_class', ''))) {
             $classes[] = sanitize_html_class($extra);
         }
-        $classes = array_merge($classes, (array) Arr::get($settings, 'css_classes', []));
+        // Existing records may still hold FooTable style names; map them for this render.
+        $settings = ninja_tables_normalize_dt_css_classes($settings);
+        $classes  = array_merge($classes, (array) Arr::get($settings, 'css_classes', []));
 
         $tableHasColor = '';
         if (Pro::active()) {

@@ -10,11 +10,12 @@ use NinjaTables\App\Library\Csv\Writer;
 use NinjaTables\App\Models\NinjaTableItem;
 use NinjaTables\App\Services\Table\Engine;
 use NinjaTables\App\Services\Table\RowReader;
+use NinjaTables\App\Support\Csv;
 use NinjaTables\Framework\Support\Arr;
 use NinjaTables\Framework\Support\Sanitizer;
 
 /**
- * Builds and streams table exports (CSV/JSON) for both the default and drag & drop tables.
+ * Builds and streams table exports (CSV/JSON/Excel) for both the default and drag & drop tables.
  * Permission and nonce checks live in the ExportHandler entry points.
  */
 class TableExporter
@@ -41,6 +42,11 @@ class TableExporter
         $shouldStream    = !$externalSource
                            && $dataProvider === 'default'
                            && (new RowReader($tableId))->count() >= $streamThreshold;
+
+        if ($format === 'xlsx') {
+            self::sendXlsx($tableId, $fileName);
+            return;
+        }
 
         if ($shouldStream) {
             if ($format == 'csv') {
@@ -135,6 +141,114 @@ class TableExporter
         }
     }
 
+    /**
+     * Build the .xlsx export of a table into a temp file and return its path;
+     * the caller deletes it. Rows come from the same sources, in the same order,
+     * as the CSV export: large default-provider tables are paged (bounded
+     * memory), smaller ones use the provider path. No CSV formula prefix is
+     * needed: XlsxWriter writes text as inline strings, which are never evaluated.
+     *
+     * @throws \RuntimeException xlsx_unsupported | xlsx_too_many_rows | xlsx_io
+     */
+    public static function buildXlsx($tableId)
+    {
+        $tableColumns    = ninja_table_get_table_columns($tableId, 'admin');
+        $tableSettings   = ninja_table_get_table_settings($tableId, 'admin');
+        $isDataTables    = Engine::isDataTables($tableId);
+        $streamThreshold = (int) apply_filters('ninja_tables_export_stream_threshold', 20000, $tableId);
+        $shouldStream    = ninja_table_get_data_provider($tableId) === 'default'
+                           && (new RowReader($tableId))->count() >= $streamThreshold;
+
+        $header = array();
+        foreach ($tableColumns as $item) {
+            $header[$item['key']] = $item['name'];
+        }
+
+        $writer = new XlsxWriter(get_temp_dir());
+        try {
+            $writer->open(array_values($header), get_the_title($tableId));
+            foreach (self::exportRows($tableId, $tableColumns, $tableSettings, $isDataTables, $shouldStream) as $row) {
+                $cells = array();
+                foreach ($header as $accessor => $name) {
+                    $cells[] = Arr::get($row, $accessor);
+                }
+                $writer->addRow($cells);
+            }
+
+            return $writer->finish();
+        } catch (\Throwable $e) {
+            $writer->abort();
+            throw $e;
+        }
+    }
+
+    /**
+     * Rows as key => value maps, from the same sources as the CSV export.
+     *
+     * @return \Generator
+     */
+    private static function exportRows($tableId, $tableColumns, $tableSettings, $isDataTables, $shouldStream)
+    {
+        if ($shouldStream) {
+            foreach ((new RowReader($tableId))->each() as $streamRow) {
+                yield (array) $streamRow->value;
+            }
+            return;
+        }
+
+        if ($isDataTables) {
+            $data = (new RowReader($tableId, Engine::DATATABLES))->values();
+        } else {
+            $sortingType = Arr::get($tableSettings, 'sorting_type', 'by_created_at');
+            $data        = ninjaTablesGetTablesDataByID($tableId, $tableColumns, $sortingType, true);
+        }
+
+        foreach ($data as $item) {
+            yield (array) $item;
+        }
+    }
+
+    /**
+     * Build the workbook, then stream it as a download and delete the temp file.
+     */
+    private static function sendXlsx($tableId, $fileName)
+    {
+        $exportFailed = __('Export failed', 'ninja-tables');
+
+        if (!XlsxWriter::isSupported()) {
+            wp_die(esc_html__('Excel export needs the PHP Zip extension on the server. Please export as CSV instead.', 'ninja-tables'), esc_html($exportFailed), ['response' => 500, 'back_link' => true]);
+        }
+
+        // Fetching rows, writing the sheet and zipping can outlast max_execution_time
+        // on large tables, so lift it before building, not just before the download.
+        self::extendRuntime();
+
+        try {
+            $path = self::buildXlsx($tableId);
+        } catch (\RuntimeException $e) {
+            $message = $e->getMessage() === 'xlsx_too_many_rows'
+                ? __('This table has more rows than Excel allows (1,048,576). Please export as CSV instead.', 'ninja-tables')
+                : __('Could not create the Excel file. The server may be out of disk space. Please try again, or export as CSV.', 'ninja-tables');
+            wp_die(esc_html($message), esc_html($exportFailed), ['response' => 500, 'back_link' => true]);
+        }
+
+        // Runs even if the download is cut short by a fatal error.
+        register_shutdown_function(function () use ($path) {
+            if (is_file($path)) {
+                @unlink($path); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.unlink_unlink
+            }
+        });
+
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', true);
+        header('Content-Disposition: attachment; filename="' . $fileName . '.xlsx"', true);
+        header('Content-Length: ' . filesize($path), true);
+        self::prepareStream();
+
+        readfile($path); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_readfile -- stream the built file without loading it into memory
+        @unlink($path); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.unlink_unlink
+        wp_die();
+    }
+
     public static function exportCSV($tableData, $fileName = null)
     {
         $rows = [];
@@ -192,14 +306,23 @@ class TableExporter
             ob_end_clean();
         }
 
+        self::extendRuntime();
+
+        nocache_headers();
+        header('X-Content-Type-Options: nosniff', true);
+    }
+
+    /**
+     * Let a long export run to the end: lift the execution time limit and keep
+     * going if the browser disconnects. Must run before any long-running work.
+     */
+    private static function extendRuntime()
+    {
         ignore_user_abort(true);
 
         if (function_exists('set_time_limit')) {
             @set_time_limit(0); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, Squiz.PHP.DiscouragedFunctions.Discouraged -- streamed export must not time out
         }
-
-        nocache_headers();
-        header('X-Content-Type-Options: nosniff', true);
     }
 
     /**
@@ -269,9 +392,9 @@ class TableExporter
     {
         ftruncate($buffer, 0);
         rewind($buffer);
-        // Pass enclosure/escape explicitly: matches the previous League\Csv
-        // defaults and avoids the PHP 8.4 deprecation for the escape argument.
-        fputcsv($buffer, $row, ',', '"', '\\');
+        // RFC 4180 (Csv::ESCAPE = ''), like the importers; passing it explicitly
+        // also avoids the PHP 8.4 deprecation for the escape argument.
+        fputcsv($buffer, $row, ',', '"', Csv::ESCAPE);
         rewind($buffer);
         $line = stream_get_contents($buffer);
 
@@ -373,6 +496,7 @@ class TableExporter
 
         $writer = Writer::createFromFileObject(new \SplTempFileObject());
         $writer->setDelimiter(",");
+        $writer->setEscape(Csv::ESCAPE);
         $writer->setNewline("\r\n");
         $header !== null ? $writer->insertOne($header) : '';
         $writer->insertAll($data);

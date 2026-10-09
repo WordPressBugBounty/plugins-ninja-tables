@@ -130,10 +130,14 @@ class TablesController extends Controller
     {
         $oldPostId = intval($id);
 
-        if ( ! $oldPostId) {
-            $this->json(array(
-                'message' => __('Table not found.', 'ninja-tables')
-            ), 404);
+        // Only genuine Ninja Tables may be duplicated. Without this guard a user
+        // with delegated table permission could clone — and publish — any post,
+        // page, or CPT and its meta; the same guard delete()/bulkDelete apply.
+        // It also removes the null-deref on a non-existent id below.
+        if ( ! $oldPostId || get_post_type($oldPostId) !== 'ninja-table') {
+            return $this->sendError(array(
+                'message' => __('Invalid table to duplicate.', 'ninja-tables')
+            ), 423);
         }
 
         NinjaTableItemsMigrator::checkDBMigrations();
@@ -148,7 +152,12 @@ class TablesController extends Controller
             'post_status'  => 'publish'
         );
 
-        $newPostId = wp_insert_post($attributes);
+        $newPostId = wp_insert_post($attributes, true);
+        if (is_wp_error($newPostId)) {
+            return $this->json(array(
+                'message' => __('Could not duplicate the table. No copy was created; please try again.', 'ninja-tables')
+            ), 300);
+        }
 
         try {
             Post::makeDuplicate($oldPostId, $newPostId);
@@ -158,8 +167,12 @@ class TablesController extends Controller
                 'table_id' => $newPostId
             ), 200);
         } catch (\Exception $e) {
+            // Don't leave a published, incomplete copy behind: remove the post, its rows and
+            // any row table already created (dropped by the DataTables delete hook).
+            Post::destroyTable($newPostId);
+
             $this->json(array(
-                'message' => __('An error occurred while duplicating the table.', 'ninja-tables')
+                'message' => __('Could not duplicate the table. No copy was created; please try again.', 'ninja-tables')
             ), 300);
         }
     }

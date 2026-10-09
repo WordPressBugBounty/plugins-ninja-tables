@@ -41,6 +41,15 @@ class ImportController extends Controller
                 ], 423);
             }
 
+            // Excel goes through the chunked importer at every size, so one code path
+            // covers a 200-row sheet and a 5-lakh-row one; /process drives the rest.
+            if ($format === 'excel') {
+                return $this->json(
+                    (new CsvChunkImporter())->initFromUpload((array)$_FILES['file'], $renderEngine), // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- REST nonce; validated in initFromUpload()
+                    200
+                );
+            }
+
             $fileName = Sanitizer::sanitizeTextField(
                 Arr::get($_FILES, 'file.name') // phpcs:ignore WordPress.Security.NonceVerification.Missing
             );

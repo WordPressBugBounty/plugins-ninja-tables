@@ -7,7 +7,7 @@ if (!defined('ABSPATH')) {
 }
 
 use NinjaTables\App\Helper\Helper;
-use NinjaTables\App\Library\Csv\Reader;
+use NinjaTables\App\Support\Csv;
 use NinjaTables\App\Modules\TableBuilder\InitConfig;
 use NinjaTables\Framework\Support\Arr;
 use NinjaTables\Framework\Support\Sanitizer;
@@ -95,7 +95,7 @@ class TableBuilderImporter
         } else {
             $data = mb_convert_encoding($remoteContent, 'UTF-8', 'ISO-8859-1');
 
-            return Reader::createFromString($data)->fetchAll();
+            return Csv::readerFromString($data)->fetchAll();
         }
     }
 
@@ -130,7 +130,7 @@ class TableBuilderImporter
         }
 
         try {
-            $reader = Reader::createFromPath($tmpName, 'r');
+            $reader = Csv::reader($tmpName);
         } catch (\Exception $exception) {
             wp_send_json_error(array(
                 'errors'  => $exception->getMessage(),

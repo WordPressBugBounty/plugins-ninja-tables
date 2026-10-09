@@ -35,6 +35,13 @@ class CssGenerator
         $fonts           = TableCssHelper::extractFontSettings($settings);
         $colors          = TableCssHelper::buildColorPalette($settings);
 
+        // The custom body border colour must follow the "Bordered table" toggle: FooTable/Bootstrap
+        // gives every cell a default border, so a lingering custom border-color would otherwise stay
+        // visible after the toggle is switched off. (DataTables has no default cell borders, so it
+        // self-corrects and needs no equivalent gate.)
+        $borderedClasses  = ['celled', 'table-bordered'];
+        $hasBorderedClass = (bool) array_intersect($borderedClasses, (array) Arr::get($settings, 'css_classes', []));
+
         $hasStackable = false;
         if (Arr::get($settings, 'stackable') == 'yes') {
             $hasStackable = true;

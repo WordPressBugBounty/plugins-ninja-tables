@@ -110,6 +110,15 @@ class AjaxHandler
                 wp_send_json($emptyResponse);
             }
 
+            // A table set to "own data only" must scope the public feed to the
+            // viewer's rows; the DataTables client never sends own_only, so the
+            // decision is made entirely server-side (Pro answers the filter).
+            // Scopes the counts as well so the pager stays consistent.
+            if ((bool) apply_filters('ninja_tables_public_force_own_only', false, $tableId)) {
+                $viewerId = get_current_user_id();
+                $dynamicRow->restrictToOwner($viewerId > 0 ? $viewerId : -1);
+            }
+
             $recordsTotal    = !empty($lockedFilters)
                 ? $dynamicRow->count(null, $lockedFilters)
                 : $dynamicRow->count();

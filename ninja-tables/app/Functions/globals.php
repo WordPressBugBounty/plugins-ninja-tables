@@ -168,6 +168,13 @@ if (!function_exists('ninja_table_get_data_provider')) {
     }
 }
 
+if (!function_exists('ninja_tables_normalize_dt_css_classes')) {
+    function ninja_tables_normalize_dt_css_classes($settings)
+    {
+        return \NinjaTables\App\Support\TableSettings::normalizeDataTablesCssClasses($settings);
+    }
+}
+
 if (!function_exists('ninja_tables_provider_executes_shortcodes')) {
     function ninja_tables_provider_executes_shortcodes($tableId)
     {
