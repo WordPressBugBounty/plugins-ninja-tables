@@ -11,6 +11,7 @@ use NinjaTables\App\Helper\ColumnHelper;
 use NinjaTables\App\Helper\Pro;
 use NinjaTables\App\Modules\DataTables\Database\DynamicTableManager;
 use NinjaTables\App\Modules\DataTables\Models\DynamicRow;
+use NinjaTables\App\Services\Table\Engine;
 use NinjaTables\App\Services\TranslationService;
 use NinjaTables\App\Services\Vite;
 use NinjaTables\Framework\Support\Arr;
@@ -39,6 +40,14 @@ class DataTablesRenderer extends AbstractTableRenderer
         $tableArray = $this->prepare($tableArray, 'ninja_dt_unique_id_');
         $settings   = $tableArray['settings'];
         $renderType = Arr::get($settings, 'render_type', 'ajax_table');
+
+        // Provider tables (Fluent Forms, …) have no dynamic table to page server-side.
+        $fromProvider = Engine::rendersFromProvider($tableId);
+
+        // Rows that differ per viewer must not be inlined into page HTML a page cache can replay.
+        if ($fromProvider && $renderType === 'legacy_table' && $this->rowsVaryByViewer($tableId)) {
+            $renderType = 'ajax_table';
+        }
 
         $this->enqueueAssets();
 
@@ -79,6 +88,11 @@ class DataTablesRenderer extends AbstractTableRenderer
             $this->enqueueResponsiveAssets();
         }
 
+        // FluentCart's cart/bulk-compare script reads these, as on FooTable.
+        if ($fromProvider && Arr::get($tableArray, 'provider') === 'wp_fct') {
+            $configSettings['appearance_settings'] = Arr::get(get_post_meta($tableId, '_ninja_table_fct_appearance_settings', false), 0, []);
+        }
+
         RenderConfig::applyProConfig($configSettings, $settings);
         if (Pro::active() && Arr::get($settings, 'sticky_header') === 'yes') {
             $configSettings['sticky_header']        = Arr::get($settings, 'sticky_header');
@@ -93,7 +107,7 @@ class DataTablesRenderer extends AbstractTableRenderer
 
         $dt_config = [
             'columns'           => $formatted_columns,
-            'serverSide'        => ($renderType === 'ajax_table'),
+            'serverSide'        => ($renderType === 'ajax_table' && !$fromProvider),
             'searching'         => (bool)$enableSearch,
             'paging'            => ($pagingSettings !== false),
             'pageLength'        => $perPage,
@@ -135,7 +149,23 @@ class DataTablesRenderer extends AbstractTableRenderer
             $dt_config['locked_filters_sig'] = wp_hash($lockedJson);
         }
 
-        if ($renderType === 'ajax_table') {
+        $providerScope = $fromProvider ? DataTablesRowFormatter::buildProviderScope($tableArray) : [];
+
+        if ($renderType === 'ajax_table' && $fromProvider) {
+            // One client-side load; the client never echoes locked filters on this
+            // path, so the signed payload travels in the URL itself.
+            $params = ['action' => 'ninja_tables_dt_provider_rows', 'table_id' => $tableId];
+            if (!empty($lockedFilters)) {
+                $params['ninja_locked_filters']     = rawurlencode($dt_config['locked_filters']);
+                $params['ninja_locked_filters_sig'] = rawurlencode($dt_config['locked_filters_sig']);
+            }
+            if ($providerScope) {
+                $scopeJson                          = wp_json_encode($providerScope);
+                $params['ninja_provider_scope']     = rawurlencode($scopeJson);
+                $params['ninja_provider_scope_sig'] = rawurlencode(DataTablesRowFormatter::signProviderScope($scopeJson, $tableId));
+            }
+            $dt_config['ajax_url'] = add_query_arg($params, admin_url('admin-ajax.php'));
+        } elseif ($renderType === 'ajax_table') {
             $dt_config['ajax_url']           = add_query_arg(['action' => 'ninja_tables_dt_public', 'table_id' => $tableId], admin_url('admin-ajax.php'));
             $dt_config['filter_options_url'] = add_query_arg(['action' => 'ninja_tables_dt_filter_options', 'table_id' => $tableId], admin_url('admin-ajax.php'));
         }
@@ -163,7 +193,9 @@ class DataTablesRenderer extends AbstractTableRenderer
 
         if ($renderType === 'legacy_table') {
             // Apply the locked filter server-side so hidden rows never reach the browser.
-            $table_vars['legacy_rows'] = $this->legacyRows($tableId, $settings, $lockedFilters);
+            $table_vars['legacy_rows'] = $fromProvider
+                ? DataTablesProviderRows::get($tableId, $settings, $lockedFilters, $providerScope)
+                : $this->legacyRows($tableId, $settings, $lockedFilters);
         }
 
         $this->cssOnce($tableId, 'ninja_dt_custom_css_' . $tableId, function () use ($tableArray, $columns, $settings) {
@@ -338,6 +370,26 @@ class DataTablesRenderer extends AbstractTableRenderer
         wp_enqueue_style('datatables_responsive_css', $assets . 'libs/datatables/responsive.dataTables.min.css', ['datatables_core_css'], NINJA_TABLES_VERSION);
         Vite::enqueueStyle('ninjatables_dt_responsive_css', 'css/ninjatables-datatables-responsive.css', ['datatables_responsive_css', 'ninjatables_dt_css']);
         wp_enqueue_script('datatables_responsive_js', $assets . 'libs/datatables/dataTables.responsive.min.js', ['datatables_core_js'], NINJA_TABLES_VERSION, true);
+    }
+
+    protected function rowsVaryByViewer($tableId)
+    {
+        $varies = get_post_meta($tableId, '_ninja_tables_ff_own_submission_only', true) === 'yes'
+                  || (bool) apply_filters('ninja_tables_public_force_own_only', false, $tableId);
+
+        // WP Posts "current user's posts only" (Pro query extra).
+        if (!$varies && ninja_table_get_data_provider($tableId) === 'wp-posts') {
+            $queryExtra = apply_filters('ninja_table_wp_posts_query_extra', get_post_meta($tableId, '_ninja_wp_posts_query_extra', true), $tableId);
+            $varies     = is_array($queryExtra) && Arr::get($queryExtra, 'current_user_posts') === 'true';
+        }
+
+        // Custom SQL using viewer placeholders ({current_user_id}, {user:*}, {usermeta:*}, {current_user_role}).
+        if (!$varies && ninja_table_get_data_provider($tableId) === 'raw_sql') {
+            $sql    = (string) get_post_meta($tableId, '_ninja_table_raw_sql_query', true);
+            $varies = (bool) preg_match('/\{(current_user_id|current_user_role|user:[^}]*|usermeta:[^}]*)\}/i', $sql);
+        }
+
+        return (bool) apply_filters('ninja_tables_dt_provider_rows_vary_by_viewer', $varies, $tableId);
     }
 
     protected function legacyRows($tableId, array $settings, $lockedFilters = [])

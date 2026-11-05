@@ -78,9 +78,17 @@ class FluentFormsController extends Controller
             ], 422);
         }
 
-        $form = Arr::get($request->all(), 'form');
+        $form       = Arr::get($request->all(), 'form');
+        $isNewTable = !$tableId;
 
         $tableId = (new FluentFormProvider())->saveTable($form, $fields, $tableId, $formId);
+
+        // The engine picked at creation; FooTable stays the implicit default.
+        if ($isNewTable && $tableId && sanitize_key(Arr::get($request->all(), 'rendering_engine')) === 'datatables') {
+            $tableSettings            = ninjaTablesGetDefaultSettings();
+            $tableSettings['library'] = 'datatables';
+            update_post_meta($tableId, '_ninja_table_settings', ninja_tables_normalize_dt_css_classes($tableSettings));
+        }
 
         return $this->sendSuccess([
             'data' => [

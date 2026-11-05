@@ -271,6 +271,9 @@ return [
                     'iconName'     => 'ninja-table',
                     'iconPosition' => 'left',
                     'itemSpacing'  => 0,
+                    // Icon and text side by side, text wrapping next to the icon. Only new
+                    // elements carry it; saved ones keep their original display:block.
+                    'inlineLayout' => true,
                     'color'        => '',
                     "fontSize"     => 10,
                     "alignment"    => 'center',

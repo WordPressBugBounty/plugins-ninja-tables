@@ -6,6 +6,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
+use NinjaTables\App\Modules\Lead\OptinPrompt;
 use NinjaTables\App\App;
 use NinjaTables\App\Helper\Pro;
 use NinjaTables\App\Services\Vite;
@@ -19,6 +20,7 @@ class AdminMenuHandler
     {
         add_action('admin_menu', [$this, 'add']);
         add_action('admin_enqueue_scripts', [$this, 'enqueueAssets']);
+        add_action('admin_head', [$this, 'printThemeClass']);
     }
 
     public function add()
@@ -53,6 +55,13 @@ class AdminMenuHandler
             'ninja_tables_all_tables'
         );
 
+        $submenu['ninja_tables']['create_table'] = array(
+            __('Create Table', 'ninja-tables'),
+            $capability,
+            'admin.php?page=ninja_tables#/create',
+            '',
+            'ninja_tables_create_table'
+        );
 
         $submenu['ninja_tables']['import'] = array(
             __('Import', 'ninja-tables'),
@@ -74,12 +83,6 @@ class AdminMenuHandler
                 $capability,
                 'admin.php?page=ninja-charts#/chart-list'
             );
-
-            $submenu['ninja_tables']['add_chart'] = array(
-                __('Add Chart', 'ninja-tables'),
-                $capability,
-                'admin.php?page=ninja-charts#/add-chart',
-            );
         }
 
         if (!Pro::active()) {
@@ -87,7 +90,7 @@ class AdminMenuHandler
             $submenu['ninja_tables']['upgrade_pro'] = array(
                 '<span style="color:#f39c12;">' . $getPro . '</span>',
                 $capability,
-                'https://wpmanageninja.com/downloads/ninja-tables-pro-add-on/?utm_source=ninja-tables&utm_medium=wp&utm_campaign=wp_plugin&utm_term=upgrade_menu',
+                Pro::upgradeUrl('sidebar_cta'),
                 '',
                 'ninja_table_upgrade_menu'
             );
@@ -112,6 +115,14 @@ class AdminMenuHandler
                 );
             }
         }
+
+        $submenu['ninja_tables']['settings'] = array(
+            __('Settings', 'ninja-tables'),
+            $capability,
+            'admin.php?page=ninja_tables#/tools/default_table_appearance',
+            '',
+            'ninja_tables_settings'
+        );
 
         $submenu['ninja_tables']['help'] = array(
             __('Help', 'ninja-tables'),
@@ -163,6 +174,33 @@ class AdminMenuHandler
         }
     }
 
+    /**
+     * No-flash theme class for the shared Fluent admin theme.   @fluent-theme-toolkit v1
+     *
+     * The admin app marks <body> once it runs, which is after the first paint,
+     * so a dark-mode user would see a white page first. This reads the shared
+     * key and marks <html> before anything is drawn. It has to be inline: a
+     * file is a request the paint waits on.
+     *
+     * The rules are in fluent-plugins-skills/dark-mode-unify/CONTRACT.md.
+     */
+    public function printThemeClass()
+    {
+        $page = Sanitizer::sanitizeTextField(Arr::get($_GET, 'page')); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+
+        if ($page !== 'ninja_tables') {
+            return;
+        }
+
+        $script = <<<'JS'
+(function(){try{var s=localStorage.getItem('fluent_theme_mode')||localStorage.getItem('ninjatable_theme')||'';
+var m=s.split(':')[0];if(m!=='light'&&m!=='dark'){m=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}
+if(m==='dark'){document.documentElement.classList.add('fluent_theme_dark');}}catch(e){}})();
+JS;
+
+        echo '<script id="ninja-tables-theme-class">' . $script . '</script>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+    }
+
     protected function getRestInfo($app)
     {
         $ns  = $app->config->get('app.rest_namespace');
@@ -210,10 +248,15 @@ class AdminMenuHandler
     {
         $slug = App::getInstance()->config->get('app.slug');
 
+        // ninja-tables-vendor.css already contains every rule in
+        // ninja-tables-admin.css - vendor.scss is that stylesheet plus a page
+        // wrapper - so enqueueing both shipped the whole admin stylesheet
+        // twice. Worse on RTL sites: the LTR sheet loaded after the RTL twin
+        // at equal specificity and undid part of the mirroring.
         $vendorSrc = is_rtl() ? 'css/ninja-tables-vendor-rtl.css' : 'css/ninja-tables-vendor.css';
 
+        Vite::enqueueStyle($slug . '_element_plus', 'css/ninja-tables-element-plus.css');
         Vite::enqueueStyle($slug . '_admin_app', $vendorSrc);
-        Vite::enqueueStyle($slug, 'css/ninja-tables-admin.css');
     }
 
     /**
@@ -275,9 +318,19 @@ class AdminMenuHandler
         $publish             = property_exists($tableCount, "publish") ? $tableCount->publish : 0;
         $trash               = property_exists($tableCount, "trash") ? $tableCount->trash : 0;
 
-        if ($tableCount && $publish > 1) {
-            $leadStatus = $app->applyFilters('ninja_tables_show_lead', $leadStatus);
+        // Decided once, the first time this version opens the admin app: a site that already
+        // has tables is upgrading (and gets the "what moved" banner); one with none is new.
+        // Stored so that a new site does not turn into an "upgrade" after its first table.
+        $installAudience = get_option('ninja_tables_install_audience');
+        if ($installAudience !== 'upgrade' && $installAudience !== 'new') {
+            $installAudience = ($publish + $trash) > 0 ? 'upgrade' : 'new';
+            update_option('ninja_tables_install_audience', $installAudience, false);
         }
+
+        // Email + usage opt-in (OptinCard.vue). While its Tables-list card shows, the review
+        // prompt waits, so only one ask is on screen at a time.
+        $optinState = OptinPrompt::state($publish);
+        $leadStatus = !empty($optinState['show_on_tables']);
 
         if ($tableCount && $publish > 2 && !$leadStatus) {
             $reviewOptinStatus = $app->applyFilters('ninja_tables_show_review_optin', $reviewOptinStatus);
@@ -329,12 +382,15 @@ class AdminMenuHandler
                 'email'     => $currentUser->user_email
             ],
             'img_url'                  => $assets . "img/",
+            'plugin_version'           => NINJA_TABLES_VERSION,
             'fluentform_url'           => $fluentUrl,
             'fluent_wp_url'            => 'https://wordpress.org/plugins/fluentform/',
             'fluent_form_icon'         => function_exists('ninjaTablesGetFluentFormMenuIcon') ? ninjaTablesGetFluentFormMenuIcon(
             ) : '',
             'dismissed'                => $dismissed,
-            'show_lead_pop_up'         => $leadStatus,
+            'optin'                    => $optinState,
+            'is_upgrade_install'       => $installAudience === 'upgrade',
+            'welcome_banner_dismissed' => (bool) get_option('ninja_tables_welcome_banner_dismissed'),
             'show_review_dialog'       => $reviewOptinStatus,
             'current_user_name'        => $currentUser->display_name,
             'isInstalled'              => $isInstalled,

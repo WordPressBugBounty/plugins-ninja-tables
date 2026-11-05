@@ -7,13 +7,21 @@ use NinjaTables\Framework\Support\Sanitizer;
 
 class NinjaTableItem extends Model
 {
+    // Most rows read from a connected source for one admin search
+    const SEARCH_ROW_LIMIT = 10000;
+
     protected $primaryKey = 'id';
     protected $table = 'ninja_table_items';
     protected $casts = [
         'created_at' => CustomDateCast::class,
     ];
 
-    protected function getItems($tableId, $perPage, $currentPage, $skip, $search, $dataSourceType)
+    /**
+     * @param array $sort Optional admin header sort: ['by' => column key, 'dir' => 'asc'|'desc'].
+     *                    Sorts every row, not just one page. Ignored unless the key is one of
+     *                    the table's columns. Callers that pass six arguments (Pro) are unchanged.
+     */
+    protected function getItems($tableId, $perPage, $currentPage, $skip, $search, $dataSourceType, $sort = [])
     {
         if ($dataSourceType == 'default') {
             list($orderByField, $orderByType) = $this->getTableSortingParams($tableId);
@@ -24,11 +32,15 @@ class NinjaTableItem extends Model
                 $query->where('value', 'LIKE', "%$search%");
             }
             $total = $query->count();
-            $data = $query->take($perPage)
-                          ->skip($skip)
-                          ->limit($perPage)
-                          ->orderBy($orderByField, $orderByType)
-                          ->get();
+            $query->take($perPage)
+                  ->skip($skip)
+                  ->limit($perPage);
+
+            if (!$this->applyColumnSort($query, $tableId, $sort)) {
+                $query->orderBy($orderByField, $orderByType);
+            }
+
+            $data = $query->get();
 
             $response = array();
 
@@ -64,6 +76,8 @@ class NinjaTableItem extends Model
             if ( ! $hasSettings) {
                 // We have to migrate the data now
             }
+        } elseif (trim((string)$search) !== '') {
+            list($response, $total) = $this->searchProviderRows($tableId, $perPage, $skip, $search, $dataSourceType);
         } else {
             list($response, $total) = apply_filters(
                 'ninja_tables_get_table_data_' . $dataSourceType,
@@ -91,6 +105,140 @@ class NinjaTableItem extends Model
             'data'         => $response,
             'data_source'  => $dataSourceType
         ];
+    }
+
+    /**
+     * Search a connected source. Providers only hand back rows, so ask for them
+     * from the start, keep the matches, then cut the requested page out of those.
+     * The limit is a large page size rather than -1: several providers pass the
+     * page size to array_slice(), where -1 would drop the last row.
+     */
+    protected function searchProviderRows($tableId, $perPage, $skip, $search, $dataSourceType)
+    {
+        // Fluent Forms takes its page from the request, not from the offset
+        // phpcs:disable WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput
+        $hadPage      = array_key_exists('page', $_GET);
+        $previousPage = $hadPage ? $_GET['page'] : null;
+        $_GET['page'] = 1;
+
+        $providerData = apply_filters(
+            'ninja_tables_get_table_data_' . $dataSourceType,
+            array(array(), 0),
+            $tableId,
+            self::SEARCH_ROW_LIMIT,
+            0
+        );
+
+        if ($hadPage) {
+            $_GET['page'] = $previousPage;
+        } else {
+            unset($_GET['page']);
+        }
+        // phpcs:enable
+
+        $matches = self::filterRowsBySearch($providerData[0], $search);
+
+        return array(array_slice($matches, $skip, $perPage), count($matches));
+    }
+
+    /**
+     * Keep the rows with a cell containing the search term, ignoring case and
+     * looking only at the text a cell shows, not its HTML tags and attributes.
+     */
+    public static function filterRowsBySearch($rows, $search)
+    {
+        $search = trim((string)$search);
+        if ($search === '') {
+            return (array)$rows;
+        }
+
+        return array_values(array_filter((array)$rows, function ($row) use ($search) {
+            $row = (array)$row;
+
+            return isset($row['values']) && self::cellContains($row['values'], $search);
+        }));
+    }
+
+    protected static function cellContains($cell, $search)
+    {
+        if (is_array($cell) || is_object($cell)) {
+            foreach ((array)$cell as $value) {
+                if (self::cellContains($value, $search)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        if (!is_scalar($cell)) {
+            return false;
+        }
+
+        $text = html_entity_decode(wp_strip_all_tags((string)$cell), ENT_QUOTES, 'UTF-8');
+
+        return function_exists('mb_stripos')
+            ? mb_stripos($text, $search, 0, 'UTF-8') !== false
+            : stripos($text, $search) !== false;
+    }
+
+    /**
+     * Order a default table's rows by one column's value inside the JSON row, the same way
+     * DefaultProvider::orderByJsonQuery() does for the live table. Returns false (leave the
+     * saved order) when the column is not one of the table's own.
+     */
+    protected function applyColumnSort($query, $tableId, $sort)
+    {
+        $sortBy = is_array($sort) && isset($sort['by']) ? (string)$sort['by'] : '';
+        if ($sortBy === '') {
+            return false;
+        }
+
+        $column = null;
+        foreach ((array)ninja_table_get_table_columns($tableId, 'admin') as $tableColumn) {
+            if (isset($tableColumn['key']) && $tableColumn['key'] === $sortBy) {
+                $column = $tableColumn;
+                break;
+            }
+        }
+        if (!$column) {
+            return false;
+        }
+
+        $direction = (isset($sort['dir']) && strtolower($sort['dir']) === 'desc') ? 'DESC' : 'ASC';
+        // The JSON path is a bound value (the key is already one of the
+        // table's own columns); quoting the key keeps keys like first-name valid
+        $path  = '$."' . addcslashes($column['key'], '"\\') . '"';
+        $value = 'JSON_UNQUOTE(JSON_EXTRACT(value, ?))';
+        $type  = isset($column['data_type']) ? $column['data_type'] : '';
+
+        if ($type === 'number') {
+            $query->orderByRaw("CAST($value AS DECIMAL(30,10)) $direction", [$path]);
+        } elseif ($type === 'date') {
+            $format = self::mysqlDateFormat(isset($column['dateFormat']) ? $column['dateFormat'] : '');
+            $query->orderByRaw("STR_TO_DATE($value, ?) $direction", [$path, $format]);
+        } else {
+            // Number-like text by value first (999 before 1000), then text
+            // order (the table collation ignores case)
+            $query->orderByRaw("CAST($value AS DECIMAL(30,10)) $direction", [$path])
+                  ->orderByRaw("$value $direction", [$path]);
+        }
+        $query->orderBy('id', $direction);
+
+        return true;
+    }
+
+    // Same mapping as DefaultProvider::convertDateFormatToMysql() (protected there)
+    protected static function mysqlDateFormat($dateFormat)
+    {
+        if (!$dateFormat) {
+            return '%Y-%m-%d';
+        }
+
+        return strtr($dateFormat, [
+            'YYYY' => '%Y', 'YY' => '%y', 'MM' => '%m', 'M' => '%c', 'DD' => '%d', 'D' => '%e',
+            'HH' => '%H', 'hh' => '%h', 'mm' => '%i', 'ss' => '%s',
+        ]);
     }
 
     /*

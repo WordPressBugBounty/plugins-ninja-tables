@@ -25,6 +25,14 @@ class ItemsHandler
             sanitize_text_field(Arr::get($params, 'orderBy', 'position'))
         );
         $order   = sanitize_text_field(Arr::get($params, 'order', 'ASC'));
+
+        // Admin header sort over all rows: a user column key, mapped to its
+        // database column (getAll() still checks it against the real columns)
+        $sortBy = sanitize_text_field(Arr::get($params, 'sort_by', ''));
+        if ($sortBy !== '') {
+            $orderBy = $dynamicRow->getTableManager()->sanitizeColumnName($sortBy);
+            $order   = Arr::get($params, 'sort_dir') === 'desc' ? 'DESC' : 'ASC';
+        }
         $search  = sanitize_text_field(Arr::get($params, 'search', ''));
 
         $rows = $dynamicRow->getAll($perPage, $page, $orderBy, $order, $search ?: null);

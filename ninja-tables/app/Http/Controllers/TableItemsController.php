@@ -36,7 +36,13 @@ class TableItemsController extends Controller
 
         $dataSourceType = ninja_table_get_data_provider($tableId);
 
-        $data = NinjaTableItem::getItems($tableId, $perPage, $currentPage, $skip, $search, $dataSourceType);
+        // Optional admin header sort over all rows (validated in the model)
+        $sort = [
+            'by'  => Sanitizer::sanitizeTextField(Arr::get($request->all(), 'sort_by', '')),
+            'dir' => Arr::get($request->all(), 'sort_dir') === 'desc' ? 'desc' : 'asc',
+        ];
+
+        $data = NinjaTableItem::getItems($tableId, $perPage, $currentPage, $skip, $search, $dataSourceType, $sort);
 
         $this->json($data, 200);
     }

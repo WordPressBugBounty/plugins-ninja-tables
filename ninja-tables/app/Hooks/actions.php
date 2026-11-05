@@ -42,3 +42,11 @@ $app->make(Handlers\AjaxHandler::class)->register();
 // Modules / integrations
 $app->make(Modules\DataTables\DataTablesModule::class)->register();
 $app->make(Modules\Integrations\IntegrationsInit::class)->register();
+
+// Any post save, delete or restore can add or drop a table embed, so the
+// where-used map is rebuilt on next read.
+foreach (['save_post', 'deleted_post', 'untrashed_post', 'wp_trash_post'] as $ninjaTablesUsageHook) {
+    add_action($ninjaTablesUsageHook, function () {
+        \NinjaTables\App\Services\TableUsage::flush();
+    });
+}

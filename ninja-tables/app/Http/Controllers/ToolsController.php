@@ -40,8 +40,11 @@ class ToolsController extends Controller
         foreach ($roles as $key => $role) {
             if ( ! in_array($key, $excludedRoles)) {
                 $formatted[] = array(
-                    'name' => $role['name'],
-                    'key'  => $key
+                    'name'    => $role['name'],
+                    'key'     => $key,
+                    // Roles that cannot write posts (Customer, member roles) are
+                    // usually site visitors: the admin shows them apart, with a warning
+                    'trusted' => ! empty($role['capabilities']['edit_posts'])
                 );
             }
         }

@@ -36,7 +36,7 @@ if (isset($setting['general']['options']['container_max_height']['value'])) {
 do_action('ninja_tables_drag_and_drop_after_table_print', $table_id);
 ?>
 <?php
-if (is_user_logged_in() && ninja_table_admin_role()): ?>
+if (ninja_tables_show_edit_link($table_id)): ?>
     <a href="<?php echo esc_url(admin_url('admin.php?page=ninja_tables#/table_builder_edit_table/' . intval($table_id))); ?>"
        class="ntb_edit_table_class_<?php echo esc_attr($table_id); ?>"><?php esc_html_e('Edit Table', 'ninja-tables'); ?></a>
 <?php endif; ?>

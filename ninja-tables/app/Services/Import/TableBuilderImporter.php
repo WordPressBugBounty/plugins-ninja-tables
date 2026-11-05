@@ -28,11 +28,31 @@ class TableBuilderImporter
     {
         $fileName = 'Ninja-tables' . gmdate('d-m-Y');
         $url      = sanitize_url(Arr::get($data, 'url', ''));
+        if (Arr::get($data, 'use_source_name') === '1') {
+            $source = $url ? wp_parse_url($url, PHP_URL_PATH) : Arr::get($_FILES, 'file.name'); // phpcs:ignore WordPress.Security.NonceVerification.Missing
+            $fileName = self::sourceNameFromPath((string) $source, (bool) $url);
+        }
 
         $rows = !empty($url) ? static::importFromURL($url) : static::getData();
         $rows = ninja_tables_sanitize_array($rows);
 
         return $this->savedDragAndDropTable($rows, $fileName);
+    }
+
+    private static function sourceNameFromPath($path, $fromUrl = false)
+    {
+        if ($path === '' || substr($path, -1) === '/') {
+            return '';
+        }
+        $base = basename($path);
+        if ($fromUrl) {
+            $base = rawurldecode($base);
+        }
+        if ($base === '' || $base === '.' || $base === '..') {
+            return '';
+        }
+
+        return Sanitizer::sanitizeTextField(pathinfo($base, PATHINFO_FILENAME));
     }
 
     private static $mimeTypes = [
@@ -50,6 +70,17 @@ class TableBuilderImporter
         } else {
             $initConfig                = new InitConfig();
             $tableId                   = $this->wpInsertPost($fileName);
+            if (!$tableId || is_wp_error($tableId)) {
+                throw new \RuntimeException(esc_html__('Could not create the table.', 'ninja-tables'));
+            }
+            if ($fileName === '') {
+                /* translators: %d: table ID */
+                $fileName = sprintf(__('Table #%d', 'ninja-tables'), $tableId);
+                $updated = $this->wpUpdatePost($tableId, $fileName);
+                if (!$updated || is_wp_error($updated)) {
+                    throw new \RuntimeException(esc_html__('Could not name the table.', 'ninja-tables'));
+                }
+            }
             $table_data                = $initConfig->getTableData();
             $table_data['table']['tr'] = count($csvData);
             $table_data['table']['tc'] = count($csvData[0]);

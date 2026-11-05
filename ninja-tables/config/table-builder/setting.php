@@ -166,6 +166,13 @@ return [
                 "min"   => 0,
                 "max"   => 50,
             ],
+            "table_radius" => [
+                "label" => __("Table Corner Radius", "ninja-tables"),
+                "type"  => "slider",
+                "value" => 0,
+                "min"   => 0,
+                "max"   => 50,
+            ],
             "border_color" => [
                 "label" => __("Border Color", "ninja-tables"),
                 "type"  => "color",

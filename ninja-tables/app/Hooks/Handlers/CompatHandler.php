@@ -19,6 +19,20 @@ class CompatHandler
         if (defined('NINJAPROPLUGIN_VERSION') && version_compare(NINJAPROPLUGIN_VERSION, '5.0.0', '<')) {
             add_action('init', [$this, 'aliasLegacyArrayHelper']);
         }
+
+        // Older Pro builds the WP Posts query without a post status. Public feeds run in
+        // admin-ajax (is_admin()), where WP_Query then returns drafts/pending/private posts.
+        // Early priority so a site's own args filter can still choose statuses.
+        add_filter('ninja_table_post_table_args', [$this, 'defaultPostTableStatus'], 5);
+    }
+
+    public function defaultPostTableStatus($args)
+    {
+        if (is_array($args) && empty($args['post_status'])) {
+            $args['post_status'] = 'publish';
+        }
+
+        return $args;
     }
 
     public function aliasLegacyArrayHelper()

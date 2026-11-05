@@ -29,25 +29,8 @@ class DeactivationHandler
 
     public function handle()
     {
-        // check opted in users
-        $leadSatus = get_option('_ninja_table_lead_options', array());
-        if ( ! empty($leadSatus['lead_optin_status']) && $leadSatus['lead_optin_status'] == 'yes') {
-            $currentUser = wp_get_current_user();
-            $data        = array(
-                'first_name'         => $currentUser->first_name,
-                'last_name'          => $currentUser->last_name,
-                'display_name'       => $currentUser->display_name,
-                'email'              => $currentUser->user_email,
-                'site_url'           => site_url(),
-                'request_from'       => static::getRequestForm(),
-                'plugins'            => static::getPluginsInfo(),
-                'ninja_doing_action' => 'deactivate'
-            );
-            wp_remote_post(self::$apiUrl, array(
-                'method' => 'POST',
-                'body'   => $data
-            ));
-        }
+        // The email opt-in and usage stats run from these; nothing is sent on deactivation
+        \NinjaTables\App\Modules\Lead\LeadFlow::unschedule();
     }
 
     // Function to get the client IP address
@@ -71,18 +54,6 @@ class DeactivationHandler
         }
 
         return $ipaddress;
-    }
-
-    private static function getPluginsInfo()
-    {
-        $activePlugins   = get_option('active_plugins', array());
-        $all_plugins     = array_keys(get_plugins());
-        $inActivePlugins = array_diff($all_plugins, $activePlugins);
-
-        return array(
-            'actives'   => $activePlugins,
-            'inactives' => $inActivePlugins
-        );
     }
 
     public function renderDeactivationFeedback()

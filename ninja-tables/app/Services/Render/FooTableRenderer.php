@@ -93,17 +93,11 @@ class FooTableRenderer extends AbstractTableRenderer
         $instanceName      = $tableArray['table_instance_name'];
         $customCss         = [];
 
-        $formatted_columns = ColumnFormatter::format($columns, $settings, $tableArray, function ($fc, $column, $index) use (&$settings, &$customCss, $tableArray) {
+        $formatted_columns = ColumnFormatter::format($columns, $settings, $tableArray, function ($fc, $column, $index) use (&$customCss) {
             $cssColumnName             = 'ninja_column_' . $index;
             $customCss[$cssColumnName] = [];
             if ($columnWidth = Arr::get($column, 'width')) {
                 $customCss[$cssColumnName]['width'] = $columnWidth . Arr::get($column, 'maxWidthUnit', 'px');
-            }
-
-            // Pro shop providers open product images in the lightbox.
-            if ((Helper::isProviderActiveAndMatches($tableArray, 'wp_woo') || Helper::isProviderActiveAndMatches($tableArray, 'wp_fct'))
-                && Arr::get($column, 'image_permalink_type') == 'lightbox') {
-                $settings['load_lightbox'] = true;
             }
 
             return $fc;

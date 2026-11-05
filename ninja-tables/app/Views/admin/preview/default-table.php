@@ -20,6 +20,8 @@
         /* The sticky-header panes are 70vh by default; inside the auto-sized iframe that would
            feed back into its own height. Pin them so the pane (and its scrollbar) stay stable. */
         :root { --nt-sticky-max-height: 560px; --nt-dt-sticky-max-height: 560px; }
+        html, body { scrollbar-width: none; }
+        html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
         <?php endif; ?>
     </style>
 </head>

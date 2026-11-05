@@ -118,8 +118,52 @@ return [
                 "key"       => "schedule_table_three", // unique
                 "image_url" => '#',
                 "has_pro"   => false,
+            ],
+            [
+                "name"      => __("Opening Hours", "ninja-tables"),
+                "key"       => "opening_hours", // unique
+                "image_url" => '#',
+                "has_pro"   => false,
             ]
 
+        ],
+    ],
+    // Categories below are served from config/table-builder/templates/<key>.json
+    // rather than a method on ReadyMadeTable.
+    "specification" => [
+        "name"   => __("Specification Tables", "ninja-tables"),
+        "key"    => "specification", // unique,
+        "tables" => [
+            [
+                "name"      => __("Spec Sheet", "ninja-tables"),
+                "key"       => "spec_sheet", // unique
+                "image_url" => '#',
+                "has_pro"   => false,
+            ],
+            [
+                "name"      => __("Product Specs", "ninja-tables"),
+                "key"       => "product_specs", // unique
+                "image_url" => '#',
+                "has_pro"   => true,
+            ]
+        ],
+    ],
+    "stats"         => [
+        "name"   => __("Stats Tables", "ninja-tables"),
+        "key"    => "stats", // unique,
+        "tables" => [
+            [
+                "name"      => __("Leaderboard", "ninja-tables"),
+                "key"       => "leaderboard", // unique
+                "image_url" => '#',
+                "has_pro"   => false,
+            ],
+            [
+                "name"      => __("Stats Dashboard", "ninja-tables"),
+                "key"       => "stats_dashboard", // unique
+                "image_url" => '#',
+                "has_pro"   => true,
+            ]
         ],
     ],
 ];

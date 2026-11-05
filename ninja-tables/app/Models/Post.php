@@ -12,9 +12,15 @@ class Post extends Model
     private static $cptName = 'ninja-table';
     protected $table = 'posts';
 
+    // Tabs on the Tables list. "connected" is every live data provider.
+    const SOURCE_FILTERS = ['default', 'connected', 'drag_and_drop'];
+    const ENGINE_FILTERS = ['footable', 'datatables'];
+
     public static function getPosts($args)
     {
-        $orderByes = ['ID', 'post_title'];
+        // The list can be sorted by when a table was made, not only by id
+        // and title. The allowlist is what keeps this safe from the query.
+        $orderByes = ['ID', 'post_title', 'post_date'];
         $orderBy   = Arr::get($args, 'orderby', 'ID');
         $postStatus = Arr::get($args, 'post_status', 'publish');
         $orderBy   = in_array($orderBy, $orderByes) ? $orderBy : 'ID';
@@ -28,6 +34,30 @@ class Post extends Model
                                    ->orWhere('post_content', 'like', '%' . $args['s'] . '%');
                          }
                      });
+
+        $source = Arr::get($args, 'source');
+        if ($source === 'drag_and_drop') {
+            $posts->whereIn('ID', self::idsOrNone(self::providerIds(['drag_and_drop'])));
+        } elseif ($source === 'connected') {
+            $posts->whereIn('ID', self::idsOrNone(self::providerIds(['default', 'drag_and_drop'], true)));
+        } elseif ($source === 'default') {
+            // No provider meta at all also means a default table
+            $other = self::providerIds(['default'], true);
+            if ($other) {
+                $posts->whereNotIn('ID', $other);
+            }
+        }
+
+        $engine = Arr::get($args, 'engine');
+        if (in_array($engine, self::ENGINE_FILTERS, true)) {
+            $dataTables = self::dataTablesIds();
+            if ($engine === 'datatables') {
+                $posts->whereIn('ID', self::idsOrNone($dataTables));
+            } elseif ($dataTables) {
+                $posts->whereNotIn('ID', $dataTables);
+            }
+        }
+
         $total = $posts->count();
         $orderByType = Arr::get($args, 'order');
         $orderByType = in_array(strtoupper($orderByType), ['ASC', 'DESC']) ? $orderByType : 'DESC';
@@ -43,9 +73,99 @@ class Post extends Model
         ];
     }
 
+    /**
+     * Table counts per source tab for one post status, plus the trash count,
+     * for the Tables list header. Independent of search and engine filters.
+     */
+    public static function sourceCounts($postStatus = 'publish')
+    {
+        global $wpdb;
+
+        $rows = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.DirectQuery
+            $wpdb->prepare(
+                "SELECT pm.meta_value AS provider, COUNT(DISTINCT p.ID) AS total
+                 FROM {$wpdb->posts} p
+                 LEFT JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID AND pm.meta_key = %s
+                 WHERE p.post_type = %s AND p.post_status = %s
+                 GROUP BY pm.meta_value",
+                '_ninja_tables_data_provider',
+                self::$cptName,
+                $postStatus
+            )
+        );
+
+        $counts = ['all' => 0, 'default' => 0, 'connected' => 0, 'drag_and_drop' => 0];
+        foreach ((array)$rows as $row) {
+            $total = (int)$row->total;
+            $counts['all'] += $total;
+            if (!$row->provider || $row->provider === 'default') {
+                $counts['default'] += $total;
+            } elseif ($row->provider === 'drag_and_drop') {
+                $counts['drag_and_drop'] += $total;
+            } else {
+                $counts['connected'] += $total;
+            }
+        }
+
+        $statusCounts = wp_count_posts(self::$cptName);
+        $counts['trash'] = isset($statusCounts->trash) ? (int)$statusCounts->trash : 0;
+
+        return $counts;
+    }
+
+    /**
+     * Ids of tables whose data provider is (or, with $exclude, is not) one of $providers.
+     */
+    private static function providerIds(array $providers, $exclude = false)
+    {
+        global $wpdb;
+
+        $placeholders = implode(', ', array_fill(0, count($providers), '%s'));
+        $operator     = $exclude ? 'NOT IN' : 'IN';
+
+        // $placeholders and $operator are built from constants above, never from input
+        return array_map('intval', $wpdb->get_col( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.DirectQuery
+            $wpdb->prepare(
+                "SELECT DISTINCT post_id FROM {$wpdb->postmeta}
+                 WHERE meta_key = %s AND meta_value <> '' AND meta_value {$operator} ({$placeholders})", // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+                array_merge(['_ninja_tables_data_provider'], $providers)
+            )
+        ));
+    }
+
+    /**
+     * Ids of tables rendered with DataTables. Anything else renders with
+     * FooTable (the default when the setting is missing).
+     */
+    private static function dataTablesIds()
+    {
+        global $wpdb;
+
+        return array_map('intval', $wpdb->get_col( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.DirectQuery
+            $wpdb->prepare(
+                "SELECT DISTINCT post_id FROM {$wpdb->postmeta} WHERE meta_key = %s AND meta_value LIKE %s",
+                '_ninja_table_settings',
+                '%' . $wpdb->esc_like('s:7:"library";s:10:"datatables";') . '%'
+            )
+        ));
+    }
+
+    // whereIn() with an empty list must still match nothing
+    private static function idsOrNone(array $ids)
+    {
+        return $ids ? $ids : [0];
+    }
+
     public static function getTables($perPage, $currentPage, $tables, $total = 0)
     {
+        // Resolved once for the whole page of tables, not once per row.
+        $usageMap = \NinjaTables\App\Services\TableUsage::map();
+
         foreach ($tables as $table) {
+            $usedOn = isset($usageMap[$table->ID]) ? $usageMap[$table->ID] : [];
+            $table->used_on       = $usedOn;
+            $table->used_on_count = count($usedOn);
+
             $provider = get_post_meta($table->ID, '_ninja_tables_data_provider', true);
             if ($provider === 'drag_and_drop') {
                 $table->preview_url = site_url('?ninjatable_builder_preview=' . $table->ID);

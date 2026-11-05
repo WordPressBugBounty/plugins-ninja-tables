@@ -38,6 +38,24 @@ if (!function_exists('ninja_table_admin_role')) {
     }
 }
 
+if (!function_exists('ninja_tables_show_edit_link')) {
+    /**
+     * Whether a rendered table gets the "Edit Table" link under it: users who can
+     * manage tables see it, except on the admin preview pages.
+     *
+     * @param int $tableId
+     * @return bool
+     */
+    function ninja_tables_show_edit_link($tableId)
+    {
+        if (!is_user_logged_in() || !ninja_table_admin_role()) {
+            return false;
+        }
+
+        return (bool) apply_filters('ninja_tables_show_edit_link', true, $tableId);
+    }
+}
+
 if (!function_exists('ninja_tables_db_table_name')) {
     function ninja_tables_db_table_name()
     {

@@ -39,6 +39,7 @@ class GutenbergIntegration extends BaseIntegration
                 'availableTables'          => $this->getAvailableTables(),
                 'rest'                     => $this->getRestInfo($app),
                 'hasPro'                   => Pro::active(),
+                'plugin_version'           => NINJA_TABLES_VERSION,
                 'preview_required_scripts' => array(
                     $assets . "css/ninjatables-public.css",
                     $assets . "css/ninja-table-builder-public.css",

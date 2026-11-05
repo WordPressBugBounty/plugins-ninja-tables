@@ -69,6 +69,8 @@ class ProductComparison
             'type'        => 'text',
             'filterable'  => false,
             'sortable'    => false,
+            'unsortable'  => 'yes', // the key ColumnHelper reads; keeps DataTables from sorting by it
+
             'breakpoints' => false
         ];
 

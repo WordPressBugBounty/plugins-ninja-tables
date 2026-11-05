@@ -35,6 +35,18 @@ class TableBuilderController extends Controller
 
         $initConfig            = new InitConfig();
         $table_id              = $this->wpInsertPost($table_name);
+        if (!$table_id || is_wp_error($table_id)) {
+            return $this->sendError(['data' => ['message' => __('Could not create the table.', 'ninja-tables')]], 500);
+        }
+        if (!$table_name) {
+            /* translators: %d: table ID */
+            $table_name = sprintf(__('Table #%d', 'ninja-tables'), $table_id);
+            $updated = $this->wpUpdatePost($table_id, $table_name);
+            if (!$updated || is_wp_error($updated)) {
+                return $this->sendError(['data' => ['message' => __('Could not name the table.', 'ninja-tables')]], 500);
+            }
+            $data['table_data']['table_name'] = $table_name;
+        }
         $data                  = sanitize_post_field('data', $data, $table_id, 'db');
         $table_data            = $data['table_data'];
         $table_data['headers'] = $initConfig->makeTableHeader($table_data);
@@ -57,6 +69,33 @@ class TableBuilderController extends Controller
         ], 200);
     }
 
+    /**
+     * Set style.inlineLayout on every Text Icon element in the builder's row data.
+     */
+    private function withInlineTextIcons(array $rows)
+    {
+        foreach ($rows as &$row) {
+            if (empty($row['rows']) || !is_array($row['rows'])) {
+                continue;
+            }
+            foreach ($row['rows'] as &$cell) {
+                if (empty($cell['columns']) || !is_array($cell['columns'])) {
+                    continue;
+                }
+                foreach ($cell['columns'] as &$element) {
+                    if (isset($element['data']['type']) && $element['data']['type'] === 'text_icon') {
+                        $element['data']['style']['inlineLayout'] = true;
+                    }
+                }
+                unset($element);
+            }
+            unset($cell);
+        }
+        unset($row);
+
+        return $rows;
+    }
+
     public function generateByTemplateConfig($table_type, $table_name)
     {
         $table            = (new ReadyMadeTable())->tableByType($table_type);
@@ -66,6 +105,12 @@ class TableBuilderController extends Controller
 
         if ( ! empty($table_name)) {
             $table_data['table_name'] = $table_name;
+        }
+
+        // A table made from a template is new, so its Text Icon elements get the layout that
+        // keeps text beside the icon. Tables that already exist are never touched.
+        if (isset($table_data['data']) && is_array($table_data['data'])) {
+            $table_data['data'] = $this->withInlineTextIcons($table_data['data']);
         }
 
         $table_id = $this->wpInsertPost($table_data['table_name']);
@@ -99,15 +144,26 @@ class TableBuilderController extends Controller
         $table_data_info   = DynamicConfig::getTableDataInfo($table_data['data'], $initConfig->tableColumnStyling(),
             $initConfig->tableRawStyling());
 
+        // The post title is the table's name everywhere else (list, block, REST), so the
+        // builder starts from it too. Otherwise a rename made outside the builder came back
+        // as the old name on the next Save.
+        $post_title = get_the_title($table_id);
+        $table_name = $post_title !== '' ? $post_title : $table_data['table_name'];
+
+        // Tables created from a template have data but no rendered HTML until the builder
+        // saves once; the builder uses this to save silently after its first render.
+        $needs_html = trim((string) get_post_meta($table_id, '_ninja_table_builder_table_html', true)) === '';
+
         return $this->sendSuccess([
             'data' => [
                 'settings'          => DynamicConfig::getSetting($table_settings, $initConfig->settingConfig()),
                 'responsive'        => DynamicConfig::getResponsive($table_responsive, $initConfig->responsiveConfig()),
                 'components'        => $components,
                 'ready_made_tables' => $ready_made_tables,
+                'needs_html'        => $needs_html,
                 'table_data'        => [
                     'id'         => $table_id,
-                    'table_name' => $table_data['table_name'],
+                    'table_name' => html_entity_decode($table_name, ENT_QUOTES, 'UTF-8'),
                     'data'       => $table_data_info,
                     'headers'    => $table_data['headers'],
                     'table'      => array_replace_recursive($initConfig->getOtherTableConfig(), $table_data['table']),

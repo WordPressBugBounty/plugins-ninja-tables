@@ -78,6 +78,8 @@ class DynamicConfig
         $static_config['accessibility']['options']['table_role']['value'] = $accessibility['table_role']['value'];
 
         $static_config['border']['options']['table_border']['value']                                  = $border['table_border']['value'];
+        // Tables saved before this setting existed have no value for it
+        $static_config['border']['options']['table_radius']['value']                                  = Arr::get($border, 'table_radius.value', 0);
         $static_config['border']['options']['border_color']['value']                                  = $border['border_color']['value'];
         $static_config['border']['options']['inner_border']['value']                                  = self::isTruthy($border['inner_border']['value']);
         $static_config['border']['options']['inner_border']['childs']['header_inner_border']['value'] = self::isTruthy($border['inner_border']['childs']['header_inner_border']['value']);

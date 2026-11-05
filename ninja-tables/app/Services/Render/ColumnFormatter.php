@@ -7,6 +7,7 @@ if (!defined('ABSPATH')) {
 }
 
 use NinjaTables\App\Helper\ColumnHelper;
+use NinjaTables\App\Helper\Helper;
 use NinjaTables\Framework\Support\Arr;
 
 /**
@@ -42,6 +43,12 @@ class ColumnFormatter
                 if ($base['iframe_lightbox']) {
                     $settings['iframe_lightbox'] = true;
                 }
+            }
+
+            // Shop providers open product images in the lightbox (both engines).
+            if (Arr::get($column, 'image_permalink_type') == 'lightbox'
+                && (Helper::isProviderActiveAndMatches($tableArray, 'wp_woo') || Helper::isProviderActiveAndMatches($tableArray, 'wp_fct'))) {
+                $settings['load_lightbox'] = true;
             }
 
             if ($extend) {

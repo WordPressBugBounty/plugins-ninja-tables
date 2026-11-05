@@ -189,7 +189,7 @@
         color: <?php echo esc_attr($colors['table_color_secondary']); ?> !important;
         }
         /* Stacked label — matches original column header style */
-        <?php echo esc_attr($css_parent_prefix); ?>.ninja-dt-stacked <?php echo esc_attr($css_prefix); ?> tbody tr td:before {
+        <?php echo esc_attr($css_parent_prefix); ?>.ninja-dt-stacked <?php echo esc_attr($css_prefix); ?> tbody tr td > .nt-dt-stack-label {
         background-color: <?php echo esc_attr($colors['table_header_color_primary']); ?> !important;
         color: <?php echo esc_attr($colors['table_color_header_secondary']); ?> !important;
         }

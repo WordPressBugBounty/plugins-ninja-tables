@@ -154,4 +154,53 @@ class DataTablesRowFormatter
 
         return is_array($decoded) ? $decoded : [];
     }
+
+    /**
+     * Shortcode attributes that change which rows a provider queries (Pro's WP Posts
+     * post_tax / post_tax_field). [] when none are set.
+     */
+    public static function buildProviderScope($tableArray)
+    {
+        $shortCodeData = Arr::get($tableArray, 'shortCodeData', []);
+        $postTax       = trim((string) Arr::get($shortCodeData, 'post_tax', ''));
+
+        if ($postTax === '') {
+            return [];
+        }
+
+        return [
+            'post_tax'       => $postTax,
+            'post_tax_field' => sanitize_key((string) Arr::get($shortCodeData, 'post_tax_field', 'slug')) ?: 'slug',
+        ];
+    }
+
+    /**
+     * Signed separately from locked filters (prefixed hash) so one payload can't be
+     * replayed as the other, and bound to the table so a scope issued for one table
+     * can't be replayed on another. post_tax replaces the table's own taxonomy
+     * condition, so an unsigned or foreign value would let a visitor widen the rows.
+     */
+    public static function signProviderScope($scopeJson, $tableId)
+    {
+        return wp_hash('provider_scope|' . intval($tableId) . '|' . $scopeJson);
+    }
+
+    public static function getVerifiedProviderScope($request, $tableId)
+    {
+        $raw = Arr::get($request, 'ninja_provider_scope', '');
+        $sig = Arr::get($request, 'ninja_provider_scope_sig', '');
+
+        if (!is_string($raw) || !is_string($sig) || $raw === '' || $sig === '') {
+            return [];
+        }
+
+        $raw = wp_unslash($raw);
+        if (!hash_equals(static::signProviderScope($raw, $tableId), $sig)) {
+            return [];
+        }
+
+        $decoded = json_decode($raw, true);
+
+        return is_array($decoded) ? $decoded : [];
+    }
 }

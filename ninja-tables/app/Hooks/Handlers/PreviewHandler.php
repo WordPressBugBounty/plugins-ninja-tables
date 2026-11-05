@@ -34,6 +34,9 @@ class PreviewHandler
 
                 do_action('ninja_tables_will_render_table', $tableId);
 
+                // The preview is opened from the editor: no link back to it
+                add_filter('ninja_tables_show_edit_link', '__return_false');
+
                 Vite::enqueueStyle('ninja-tables-preview', 'css/ninja-tables-preview.css');
 
                 NinjaFooTable::enqueuePublicCss();
@@ -89,6 +92,8 @@ class PreviewHandler
                 $tableId = intval(wp_unslash($_GET['ninjatable_builder_preview'])); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
                 do_action('ninja_tables_will_render_table', $tableId);
+
+                add_filter('ninja_tables_show_edit_link', '__return_false');
 
                 Vite::enqueueStyle('ninja-tables-preview', 'css/ninja-tables-preview.css');
 

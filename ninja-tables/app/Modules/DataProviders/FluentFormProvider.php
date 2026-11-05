@@ -170,6 +170,8 @@ class FluentFormProvider extends BaseProvider
         $table->isCreatedSortable = true;
         $table->isSortable        = false;
         $table->hasCacheFeature   = false;
+        // Admin shows the render-engine switch; rows still come from Fluent Forms.
+        $table->supportsDataTables = true;
 
         return $table;
     }

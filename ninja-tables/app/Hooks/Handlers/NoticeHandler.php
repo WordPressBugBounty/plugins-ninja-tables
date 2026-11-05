@@ -22,6 +22,70 @@ class NoticeHandler
         $this->ensureInstalledAtTimestamp();
         add_action('admin_notices', [$this, 'appendNotices']);
         add_action('wp_ajax_ninja_tables_dismiss_admin_notices', [$this, 'handleDismissNotice']);
+
+        // Pro older than NINJA_TABLES_MIN_PRO_VERSION: the same "update Pro" message
+        // as a WP admin notice and inside the Ninja Tables app, which strips WP notices.
+        add_action('admin_notices', [$this, 'maybeShowProOutdatedNotice']);
+        add_filter('ninja_dashboard_notices', [$this, 'addProOutdatedDashboardNotice']);
+    }
+
+    /**
+     * True when an active Ninja Tables Pro is older than this core requires.
+     * Pro builds from before the framework rewrite are handled by proUpdateRequired().
+     */
+    public static function isProOutdated()
+    {
+        return defined('NINJAPROPLUGIN_VERSION')
+               && defined('NINJA_TABLES_MIN_PRO_VERSION')
+               && version_compare(NINJAPROPLUGIN_VERSION, NINJA_TABLES_MIN_PRO_VERSION, '<');
+    }
+
+    private function proOutdatedMessage()
+    {
+        $updateUrl = admin_url('plugins.php?s=ninja-tables-pro&plugin_status=all');
+
+        return sprintf(
+            /* translators: 1: installed Ninja Tables Pro version, 2: required version, 3: opening link tag, 4: closing link tag */
+            esc_html__('Ninja Tables Pro %1$s is older than this version of Ninja Tables needs (%2$s or newer). Some Pro features may not work until you update. %3$sUpdate Ninja Tables Pro%4$s', 'ninja-tables'),
+            esc_html(NINJAPROPLUGIN_VERSION),
+            esc_html(NINJA_TABLES_MIN_PRO_VERSION),
+            '<a href="' . esc_url($updateUrl) . '"><b>',
+            '</b></a>'
+        );
+    }
+
+    public function maybeShowProOutdatedNotice()
+    {
+        if (!self::isProOutdated() || !current_user_can('update_plugins')) {
+            return;
+        }
+
+        // The Ninja Tables app shows its own copy (see addProOutdatedDashboardNotice).
+        $screen = function_exists('get_current_screen') ? get_current_screen() : null;
+        if ($screen && strpos((string) $screen->id, 'ninja_tables') !== false) {
+            return;
+        }
+
+        printf(
+            '<div class="notice notice-warning"><p><b>%1$s</b> %2$s</p></div>',
+            esc_html__('Heads up:', 'ninja-tables'),
+            wp_kses_post($this->proOutdatedMessage())
+        );
+    }
+
+    public function addProOutdatedDashboardNotice($notices)
+    {
+        if (!self::isProOutdated() || !current_user_can('update_plugins')) {
+            return $notices;
+        }
+
+        $notices['pro_update_required'] = [
+            'type'     => 'warning',
+            'message'  => $this->proOutdatedMessage(),
+            'closable' => false,
+        ];
+
+        return $notices;
     }
 
     private function ensureInstalledAtTimestamp()
@@ -298,10 +362,10 @@ class NoticeHandler
     private function getReviewMessages()
     {
         // Link markup is passed in rather than embedded, so a translation cannot break a URL.
-        $docsLink     = "<a class='nt-link' href='https://ninjatables.com/docs/' target='_blank'>";
+        $docsLink     = "<a class='nt-link' href='https://docs.ninjatables.com/' target='_blank'>";
         $videosLink   = "<a class='nt-link' href='https://youtube.com/playlist?list=PLXpD0vT4thWGhHDY0X7UpN9JoR0vu2O_C&si=XMx60a-0AGu7KxZB' target='_blank'>";
-        $advancedLink = "<a class='nt-link' href='https://ninjatables.com/docs-category/advanced-mode/' target='_blank'>";
-        $simpleLink   = "<a class='nt-link' href='https://ninjatables.com/docs-category/simple-mode/' target='_blank'>";
+        $advancedLink = "<a class='nt-link' href='https://docs.ninjatables.com/create-your-first-table' target='_blank'>";
+        $simpleLink   = "<a class='nt-link' href='https://docs.ninjatables.com/how-to-create-your-first-drag-and-drop-table-with-ninja-tables/' target='_blank'>";
 
         return [
             'no_tables' => sprintf(

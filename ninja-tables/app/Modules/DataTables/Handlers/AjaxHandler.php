@@ -6,7 +6,9 @@ defined('ABSPATH') || exit;
 
 use NinjaTables\App\Modules\DataTables\Database\DynamicTableManager;
 use NinjaTables\App\Modules\DataTables\Models\DynamicRow;
+use NinjaTables\App\Services\Render\DataTablesProviderRows;
 use NinjaTables\App\Services\Render\DataTablesRowFormatter;
+use NinjaTables\App\Services\Table\Engine;
 use NinjaTables\Framework\Support\Arr;
 
 /**
@@ -20,6 +22,42 @@ class AjaxHandler
         add_action('wp_ajax_nopriv_ninja_tables_dt_public', [$this, 'handleAjax']);
         add_action('wp_ajax_ninja_tables_dt_filter_options', [$this, 'handleFilterOptions']);
         add_action('wp_ajax_nopriv_ninja_tables_dt_filter_options', [$this, 'handleFilterOptions']);
+        add_action('wp_ajax_ninja_tables_dt_provider_rows', [$this, 'handleProviderRows']);
+        add_action('wp_ajax_nopriv_ninja_tables_dt_provider_rows', [$this, 'handleProviderRows']);
+    }
+
+    /**
+     * AJAX: the full row set of a provider-backed (Fluent Forms, …) DataTables table,
+     * paged/searched/sorted in the browser. Same public-read policy as handleAjax().
+     */
+    public function handleProviderRows()
+    {
+        $request = ninjaTablesRequest();
+        $tableId = intval(Arr::get($request, 'table_id', 0));
+
+        $post = $tableId ? get_post($tableId) : null;
+        if (!$post || $post->post_type !== 'ninja-table' || $post->post_status !== 'publish') {
+            wp_send_json([]);
+        }
+
+        // Default tables are served by handleAjax(); only allow-listed providers here.
+        if (!Engine::rendersFromProvider($tableId)) {
+            wp_send_json([]);
+        }
+
+        try {
+            $settings = ninja_table_get_table_settings($tableId, 'public');
+            $rows     = DataTablesProviderRows::get(
+                $tableId,
+                is_array($settings) ? $settings : [],
+                DataTablesRowFormatter::getVerifiedLockedFilters($request),
+                DataTablesRowFormatter::getVerifiedProviderScope($request, $tableId)
+            );
+
+            wp_send_json($rows);
+        } catch (\Throwable $e) {
+            wp_send_json([]);
+        }
     }
 
     public function handleAjax()

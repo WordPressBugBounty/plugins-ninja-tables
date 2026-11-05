@@ -35,11 +35,22 @@ class TablesController extends Controller
             $args['s'] = Sanitizer::sanitizeTextField($request->search);
         }
 
+        // Source tab and engine filter on the Tables list; allowlisted values only
+        $source = Sanitizer::sanitizeTextField(Arr::get($request->all(), 'source'));
+        if (in_array($source, Post::SOURCE_FILTERS, true)) {
+            $args['source'] = $source;
+        }
+        $engine = Sanitizer::sanitizeTextField(Arr::get($request->all(), 'engine'));
+        if (in_array($engine, Post::ENGINE_FILTERS, true)) {
+            $args['engine'] = $engine;
+        }
+
         try {
             $tables    = Post::getPosts($args);
             $total = $tables['total'];
             $tables    = $this->app->applyFilters('ninja_tables_get_all_tables', $tables['data']);
             $tablesRes = Post::getTables($perPage, $currentPage, $tables, $total);
+            $tablesRes['source_counts'] = Post::sourceCounts($postStatus ?: 'publish');
             $this->json($tablesRes, 200);
         } catch (\Exception $e) {
             $this->json(array(
@@ -180,6 +191,16 @@ class TablesController extends Controller
     public function dismissFluentSuggest(Request $request)
     {
         update_option('_ninja_tables_plugin_suggest_dismiss', time());
+    }
+
+    /**
+     * "Welcome to the new Ninja Tables": once anyone closes it, it stays closed on this site.
+     */
+    public function dismissWelcomeBanner(Request $request)
+    {
+        update_option('ninja_tables_welcome_banner_dismissed', time(), false);
+
+        $this->json(['dismissed' => true], 200);
     }
 
     public function tableInnerHtml($id)

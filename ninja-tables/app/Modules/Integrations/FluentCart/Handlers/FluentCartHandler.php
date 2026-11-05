@@ -8,6 +8,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 use NinjaTables\App\Services\Vite;
 use NinjaTables\App\App;
+use NinjaTables\App\Models\NinjaTableItem;
 use NinjaTables\App\Modules\Integrations\FluentCart\CartService;
 use NinjaTables\App\Modules\Integrations\FluentCart\ProductFormatter;
 use NinjaTables\App\Modules\Integrations\FluentCart\ProductQuery;
@@ -99,6 +100,11 @@ class FluentCartHandler
 
         $tableId = $this->saveTable();
 
+        // Stores default settings and the engine picked on the create screen.
+        do_action('ninja_tables/update_table_settings', $tableId, [
+            'request_data' => $inputs
+        ]);
+
         update_post_meta($tableId, '_ninja_wp_posts_query_extra', $this->getQueryExtra($tableId));
 
         $message = 'Table created successfully.';
@@ -140,14 +146,25 @@ class FluentCartHandler
 
         $columns = get_post_meta($tableId, '_ninja_table_columns', true);
 
-        $total         = $this->query->getProductCount($tableId);
-        $products      = $this->query->getProducts($tableId, $perPage, $skip);
-        $formattedData = $this->formatter->adminRows($columns, $products);
+        $search = sanitize_text_field(Arr::get($inputs, 'search', ''));
+
+        if ($search !== '') {
+            $products = $this->query->getProducts($tableId, NinjaTableItem::SEARCH_ROW_LIMIT);
+            $matches  = NinjaTableItem::filterRowsBySearch($this->formatter->adminRows($columns, $products), $search);
+
+            $total         = count($matches);
+            $formattedData = array_slice($matches, $skip, $perPage);
+        } else {
+            $total         = $this->query->getProductCount($tableId);
+            $products      = $this->query->getProducts($tableId, $perPage, $skip);
+            $formattedData = $this->formatter->adminRows($columns, $products);
+        }
 
         $data = [
             'data'        => $formattedData,
             'data_source' => 'wp_fct',
-            'total'       => $total
+            'total'       => $total,
+            'last_page'   => (int) ceil($total / max(1, $perPage))
         ];
 
         return wp_send_json($data, 200);

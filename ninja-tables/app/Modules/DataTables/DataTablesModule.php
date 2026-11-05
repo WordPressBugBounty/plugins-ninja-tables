@@ -7,6 +7,7 @@ defined('ABSPATH') || exit;
 use NinjaTables\App\Modules\DataTables\Database\DynamicTableManager;
 use NinjaTables\App\Modules\DataTables\Handlers\AjaxHandler;
 use NinjaTables\App\Modules\DataTables\Handlers\PublicRenderer;
+use NinjaTables\App\Services\Table\Engine;
 use NinjaTables\Framework\Support\Arr;
 
 class DataTablesModule
@@ -40,7 +41,8 @@ class DataTablesModule
         $settings = ninja_table_get_table_settings($tableId, 'public');
         $library  = Arr::get($settings, 'library', 'footable');
 
-        if ($library !== 'datatables') {
+        // Provider-fed tables (Fluent Forms, …) have no dynamic table to sync.
+        if ($library !== 'datatables' || Engine::rendersFromProvider($tableId)) {
             return;
         }
 

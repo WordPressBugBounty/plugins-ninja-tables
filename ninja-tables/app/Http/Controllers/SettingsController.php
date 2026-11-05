@@ -3,6 +3,7 @@
 namespace NinjaTables\App\Http\Controllers;
 
 use NinjaTables\App\Models\Post;
+use NinjaTables\App\Services\Table\Engine;
 use NinjaTables\Database\Migrations\NinjaTableItemsMigrator;
 use NinjaTables\Framework\Http\Request\Request;
 use NinjaTables\Framework\Support\Arr;
@@ -24,6 +25,8 @@ class SettingsController extends Controller
         $provider = ninja_table_get_data_provider($table->ID);
 
         $table = $this->app->applyFilters('ninja_tables_get_table_' . $provider, $table);
+        // Lets the admin switch engines for any allow-listed provider (incl. Pro's) without a per-provider flag.
+        $table->supportsDataTables = !empty($table->supportsDataTables) || Engine::rendersFromProvider($tableID);
         $table->post_content  = wp_kses_post($table->post_content);
         $table->table_caption = get_post_meta($tableID, '_ninja_table_caption', true);
 
@@ -213,6 +216,13 @@ class SettingsController extends Controller
         $css     = sanitize_textarea_field(wp_unslash($request->get('custom_css', '')));
         $css     = wp_strip_all_tags($css);
         update_post_meta($tableId, '_ninja_tables_custom_css', $css);
+
+        if (Arr::get($request->all(), 'table_settings', [])) {
+            $tablePreference = ninja_tables_normalize_dt_css_classes(
+                ninja_tables_sanitize_array($request->table_settings)
+            );
+            Post::updatedSettings($tableId, [], $tablePreference);
+        }
 
         $this->app->doAction('ninja_tables_custom_code_before_save', $request->all());
 

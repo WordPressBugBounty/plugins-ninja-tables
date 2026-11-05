@@ -250,10 +250,21 @@ class ProductFormatter
         return '';
     }
 
+    /**
+     * Parts of a {post.field} / {postmeta.key} placeholder value, or null. These return raw
+     * stored data, so DataTables keeps them sanitized (see DataTablesProviderRows).
+     */
+    public static function fieldPlaceholder($value)
+    {
+        $value = wp_strip_all_tags((string) $value);
+
+        return preg_match('/^\{([a-zA-Z0-9_]+)\.([a-zA-Z0-9_]+)\}$/', $value, $matches) ? $matches : null;
+    }
+
     protected function handleDynamicColumnShortcode($row, $column)
     {
         $shortcode = wp_strip_all_tags(Arr::get($column, 'wp_post_custom_data_value'));
-        if (preg_match('/^\{([a-zA-Z0-9_]+)\.([a-zA-Z0-9_]+)\}$/', $shortcode, $matches)) {
+        if ($matches = static::fieldPlaceholder($shortcode)) {
             $firstPart  = $matches[1];
             $secondPart = $matches[2];
 
@@ -429,7 +440,7 @@ class ProductFormatter
     {
         $productType = Arr::get($row, 'detail.fulfillment_type');
         $productId   = intval(Arr::get($row, 'ID'));
-        $value       = '<div class="nt_fct_variations_wrapper" data-product_type="'.$productType.'" data-product_id="' . $productId . '">';
+        $value       = '<div class="nt_fct_variations_wrapper" data-product_type="' . esc_attr($productType) . '" data-product_id="' . $productId . '">';
 
         if (!empty($variants)) {
             if (gettype($variants) === 'object') {
@@ -440,19 +451,19 @@ class ProductFormatter
 
             $value .= '<select class="nt_fct_variations_select" 
               data-nt_variations_select="' . $productId . '"
-              data-image_src="' . Arr::get($firstVariation, 'media.meta_value.0.url', '') . '"
-              data-current-variation-id="' . Arr::get($firstVariation, 'id') . '"
-              data-current-price="' . Arr::get($firstVariation, 'item_price') . '"
-              data-current-compared-price="' . Arr::get($firstVariation, 'compare_price') . '">';
+              data-image_src="' . esc_url(Arr::get($firstVariation, 'media.meta_value.0.url', '')) . '"
+              data-current-variation-id="' . esc_attr(Arr::get($firstVariation, 'id')) . '"
+              data-current-price="' . esc_attr(Arr::get($firstVariation, 'item_price')) . '"
+              data-current-compared-price="' . esc_attr(Arr::get($firstVariation, 'compare_price')) . '">';
 
             foreach ($variants as $variant) {
-                $value .= '<option value="' . Arr::get($variant, 'item_price') . '"
-                  data-variation_id="' . Arr::get($variant, 'id') . '"
-                  data-image_src="' . Arr::get($variant, 'media.meta_value.0.url', '') . '"
-                  data-formatted_price="' . Arr::get($variant, 'formatted_total') . '"
-                  data-compared_price="' . CurrencySettings::getFormattedPrice(Arr::get($variant, 'compare_price')) . '"
+                $value .= '<option value="' . esc_attr(Arr::get($variant, 'item_price')) . '"
+                  data-variation_id="' . esc_attr(Arr::get($variant, 'id')) . '"
+                  data-image_src="' . esc_url(Arr::get($variant, 'media.meta_value.0.url', '')) . '"
+                  data-formatted_price="' . esc_attr(Arr::get($variant, 'formatted_total')) . '"
+                  data-compared_price="' . esc_attr(CurrencySettings::getFormattedPrice(Arr::get($variant, 'compare_price'))) . '"
                   data-stock="' . intval(Arr::get($variant, 'available', 0)) . '"
-                  class="nt_fct_variation_option">' . Arr::get($variant, 'variation_title') . '</option>';
+                  class="nt_fct_variation_option">' . esc_html(Arr::get($variant, 'variation_title')) . '</option>';
             }
             $value .= '</select>';
         }
@@ -504,7 +515,7 @@ class ProductFormatter
         $atts = '';
         if (Arr::get($column, 'permalinked') == 'yes') {
             if (Arr::get($column, 'filter_permalinked') == 'yes') {
-                $atts = ' data-target_column=' . $column['key'] . ' class="ninja_table_permalink ninja_table_do_column_filter" ';
+                $atts = ' data-target_column="' . esc_attr($column['key']) . '" class="ninja_table_permalink ninja_table_do_column_filter" ';
             } elseif (Arr::get($column, 'permalink_target') == '_blank') {
                 $atts = ' class="ninja_table_tax_permalink" target="_blank" ';
             } else {
@@ -516,10 +527,10 @@ class ProductFormatter
             if ($atts) {
                 $link = get_term_link($term);
 
-                return "<a " . $atts . " href='{$link}'>{$term->name}</a>";
+                return "<a " . $atts . " href='" . esc_url(is_wp_error($link) ? '' : $link) . "'>" . esc_html($term->name) . "</a>";
             }
 
-            return $term->name;
+            return esc_html($term->name);
         }, wp_get_post_terms(Arr::get($row, 'ID'), $fieldName));
 
         if ($terms) {

@@ -14,6 +14,7 @@ if (!defined('ABSPATH')) {
 
 use NinjaTables\App\Http\Controllers\FluentFormsController;
 use NinjaTables\App\Http\Controllers\ImportController;
+use NinjaTables\App\Http\Controllers\OptinController;
 use NinjaTables\App\Http\Controllers\PluginInstallerController;
 use NinjaTables\App\Http\Controllers\SettingsController;
 use NinjaTables\App\Http\Controllers\TableBuilderController;
@@ -27,6 +28,12 @@ $router->prefix('tables')->group(function ($router) {
     $router->get('/', [TablesController::class, 'index']);
     $router->post('/', [TablesController::class, 'store']);
     $router->post('/dismiss-fluent-suggest', [TablesController::class, 'dismissFluentSuggest']);
+    $router->post('/dismiss-welcome-banner', [TablesController::class, 'dismissWelcomeBanner']);
+    // Email opt-in and usage sharing (OptinCard.vue); OptinController checks manage_options
+    $router->post('/optin', [OptinController::class, 'subscribe']);
+    $router->post('/optin/usage', [OptinController::class, 'saveUsage']);
+    $router->post('/optin/dismiss', [OptinController::class, 'dismiss']);
+    $router->post('/optin/stop-emails', [OptinController::class, 'stopEmails']);
     $router->delete('/bulk-delete', [TablesController::class, 'bulkDeleteTables']);
     $router->post('/bulk-restore', [TablesController::class, 'bulkRestoreTables']);
 

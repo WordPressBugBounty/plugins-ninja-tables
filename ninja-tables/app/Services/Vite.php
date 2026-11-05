@@ -55,6 +55,23 @@ class Vite
         return NINJA_TABLES_DIR_URL . 'assets/' . ltrim($path, '/');
     }
 
+    /**
+     * The cache-busting version for a built asset.
+     *
+     * The plugin version alone does not change when a build does, so a rebuilt
+     * bundle must include the file's own mtime to get a new URL.
+     */
+    protected static function assetVersion($asset)
+    {
+        $file = NINJA_TABLES_DIR_PATH . 'assets/' . ltrim($asset, '/');
+
+        if (!file_exists($file)) {
+            return NINJA_TABLES_VERSION;
+        }
+
+        return NINJA_TABLES_VERSION . '.' . filemtime($file);
+    }
+
     public static function enqueueScript($handle, $asset, $deps = [], $inFooter = true)
     {
         if (static::isDev() && ($source = static::devSource($asset))) {
@@ -62,7 +79,7 @@ class Vite
             return;
         }
 
-        wp_enqueue_script($handle, static::assetsUrl($asset), $deps, NINJA_TABLES_VERSION, $inFooter);
+        wp_enqueue_script($handle, static::assetsUrl($asset), $deps, static::assetVersion($asset), $inFooter);
     }
 
     public static function enqueueStyle($handle, $asset, $deps = [], $media = 'all')
@@ -77,7 +94,7 @@ class Vite
             return;
         }
 
-        wp_enqueue_style($handle, static::assetsUrl($asset), $deps, NINJA_TABLES_VERSION, $media);
+        wp_enqueue_style($handle, static::assetsUrl($asset), $deps, static::assetVersion($asset), $media);
     }
 
     protected static function devSource($asset)
