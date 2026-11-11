@@ -3,6 +3,7 @@
 namespace NinjaTables\App\Models;
 
 use NinjaTables\App\Models\Casts\CustomDateCast;
+use NinjaTables\App\Support\Sanitize;
 use NinjaTables\Framework\Support\Sanitizer;
 
 class NinjaTableItem extends Model
@@ -50,7 +51,7 @@ class NinjaTableItem extends Model
                 $hasSettings = property_exists($item, 'settings');
                 $settings    = (object)array();
                 if ($hasSettings) {
-                    $settings = maybe_unserialize($item->settings);
+                    $settings = Sanitize::rowSettings($item->settings);
                     if ( ! is_array($settings)) {
                         $settings = (object)array();
                     }
@@ -424,7 +425,7 @@ class NinjaTableItem extends Model
         $itemSettings = '';
 
         if ($item && $item->settings !== null) {
-            $itemSettings = maybe_unserialize($item->settings);
+            $itemSettings = Sanitize::rowSettings($item->settings);
         }
 
         if ( ! is_array($itemSettings)) {

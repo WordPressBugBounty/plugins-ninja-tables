@@ -28,6 +28,14 @@ class SubscriberOptin
 
     const STATUSES = ['confirm_email', 'subscribed', 'queued'];
 
+    /** The same opt-in: same address, consented at the same moment */
+    private static function isSameOptin($stored, $sent)
+    {
+        return !empty($stored['email'])
+            && strtolower($stored['email']) === strtolower($sent['email'])
+            && (int) $stored['consented_at'] === (int) $sent['consented_at'];
+    }
+
     public static function get()
     {
         $optin = get_option(self::OPTION, []);
@@ -133,6 +141,14 @@ class SubscriberOptin
         // Anything we don't recognise reads as 'queued': the Worker has it either way.
         if (!in_array($status, self::STATUSES, true)) {
             $status = 'queued';
+        }
+
+        // The request can take seconds. If the admin changed or removed the email meanwhile,
+        // their newer choice wins: record the delivery only on the opt-in that was sent.
+        // Read the option fresh: the cached copy would not show another request's change
+        wp_cache_delete(self::OPTION, 'options');
+        if (!self::isSameOptin(self::get(), $optin)) {
+            return $status;
         }
 
         $optin['sent_at'] = time();

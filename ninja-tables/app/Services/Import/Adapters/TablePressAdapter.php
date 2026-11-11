@@ -21,17 +21,13 @@ class TablePressAdapter extends BaseAdapter
         $formattedTables = array();
 
         foreach ($tables as $table) {
-            $is_already_imported = get_post_meta($table->ID, '_imported_to_ninja_table', true);
-            $tableTitle          = $table->post_title;
-            if ($is_already_imported) {
-                $tableTitle .= ' (Already Imported)';
+            $linkedTableId = get_post_meta($table->ID, '_imported_to_ninja_table', true);
+            $entry         = $this->tableEntry($table->ID, $table->post_title, $linkedTableId);
+            // Older screens read the import state from the title
+            if ($entry['ninja_table_id']) {
+                $entry['post_title'] .= ' (Already Imported)';
             }
-            $temp              = array(
-                'ID'             => $table->ID,
-                'post_title'     => $tableTitle,
-                'ninja_table_id' => $is_already_imported
-            );
-            $formattedTables[] = $temp;
+            $formattedTables[] = $entry;
         }
 
         return $formattedTables;
@@ -75,7 +71,7 @@ class TablePressAdapter extends BaseAdapter
             update_post_meta($tableId, '_imported_to_ninja_table', $ninjaTableId);
 
             return $ninjaTableId;
-        } catch (\Exception $exception) {
+        } catch (\Throwable $exception) {
             return new \WP_Error('broke', $exception->getMessage());
         }
     }

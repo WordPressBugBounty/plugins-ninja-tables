@@ -152,6 +152,51 @@ class Sanitize
     }
 
     /**
+     * Stored or imported row settings as an array, or null when they aren't plain data.
+     * Unlike maybe_unserialize(), this never creates an object from what the row holds.
+     *
+     * @return array|null
+     */
+    public static function rowSettings($settings)
+    {
+        if (is_serialized($settings)) {
+            $settings = @unserialize($settings, ['allowed_classes' => false]); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.PHP.DiscouragedPHPFunctions.serialize_unserialize -- invalid data is dropped below
+        }
+
+        if (!is_array($settings)) {
+            return null;
+        }
+
+        $nodesLeft = 10000;
+
+        return self::isPlainData($settings, $nodesLeft) ? $settings : null;
+    }
+
+    /**
+     * Unserialized input can hold self-references, which crash PHP's recursive array
+     * functions, and references that expand exponentially. The depth limit stops the
+     * first and the node limit the second; real row settings are far smaller than both.
+     */
+    private static function isPlainData($value, &$nodesLeft, $depth = 0)
+    {
+        if (!is_array($value)) {
+            return !is_object($value);
+        }
+
+        if ($depth >= 16) {
+            return false;
+        }
+
+        foreach ($value as $item) {
+            if (--$nodesLeft < 0 || !self::isPlainData($item, $nodesLeft, $depth + 1)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * Sanitizes CSV value
      *
      * @param string $content

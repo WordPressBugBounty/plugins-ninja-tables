@@ -4,7 +4,7 @@ Tags: table, table builder, pricing table, comparison table, product table
 Requires at least: 6.0
 Requires PHP: 7.4
 Tested up to: 7.1
-Stable tag: 5.5.0
+Stable tag: 5.5.1
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -168,7 +168,7 @@ Ninja Tables lets you choose from 100+ different table styles and 3 popular CSS 
 Conveniently display your tables on all devices. Visitors can sort any column and search the whole table, and tables are built to WCAG 2.1 AA accessibility. It comes with six distinct breakpoints, which lets you choose your required settings if needed. Hide or show any table column you decide.
 
 
-If you enable “[Stackable Table Configuration”](https://docs.ninjatables.com/guide/responsive-design/stackable-table) the table rows will separate and stack on top of each other to create multiple tables. This feature is useful for mobile view or other small screens.
+If you enable “[Stackable Table Configuration”](https://docs.ninjatables.com/stackable-table) the table rows will separate and stack on top of each other to create multiple tables. This feature is useful for mobile view or other small screens.
 
 
 ### Effortlessly Configure Your Table Data
@@ -431,7 +431,7 @@ You can upload Image, File, Lightbox, & iframe in the Ninja Tables columns.
 
 
 = Can I enable frontend editing for my table? =
-Yes, the Ninja Tables Pro enables you to make [front-end editing](https://docs.ninjatables.com/guide/advanced-features/frontend-editing) enabled tables.
+Yes, the Ninja Tables Pro enables you to make [front-end editing](https://docs.ninjatables.com/frontend-editing) enabled tables.
 
 
 = Can I connect Google Sheets to Ninja Tables? =
@@ -461,6 +461,13 @@ Ninja Tables [customer support](https://wpmanageninja.com/account/support-ticket
 
 == Changelog ==
 We released several updates for Ninja Tables in the years of development. These include improvements to the existing features and some wonderful additions to help you design tables more effectively.
+
+= 5.5.1 (Date: November 10, 2026) =
+* Improved: Import TablePress and Supsystic table
+* Improved: Row details modal.
+* Fixed: #colspan# now merges cells in DataTables tables and FooTable Ajax tables.
+* Security: Hardened table imports (Supsystic data, file paths, JSON rows and meta keys).
+* Security: Editing custom JavaScript now requires the unfiltered HTML capability.
 
 = 5.5.0 (Date: November 04, 2026) =
 * Added: Fully redesigned admin screens, including the Drag & Drop table builder.
@@ -623,10 +630,13 @@ We released several updates for Ninja Tables in the years of development. These 
  • Improve: WooCommerce bulk operations
  • Tested: Full plugin via Plugin Check(PCP)
 
-[View full changelog for all versions.](https://docs.ninjatables.com/guide/changelog/change-log)
+[View full changelog for all versions.](https://docs.ninjatables.com/change-log)
 
 
 == Upgrade Notice ==
+
+= 5.5.1 =
+Security hardening for imports and exports. If you exported a table that uses an external database before this version, change that database's password.
 
 = 5.5.0 =
 A redesigned admin. If you use Ninja Tables Pro, update it to 5.5.0 as well: older Pro versions will show an update notice.

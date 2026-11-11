@@ -224,7 +224,14 @@ class SettingsController extends Controller
             Post::updatedSettings($tableId, [], $tablePreference);
         }
 
-        $this->app->doAction('ninja_tables_custom_code_before_save', $request->all());
+        // Custom JS prints raw to every visitor. Pro stores what this hook gets, slashed input included.
+        $customCode             = $request->all();
+        $customCode['table_id'] = $tableId;
+        if (!ninjaTablesCanUnfilteredHTML()) {
+            $customCode['custom_js'] = wp_slash((string) get_post_meta($tableId, '_ninja_tables_custom_js', true));
+        }
+
+        $this->app->doAction('ninja_tables_custom_code_before_save', $customCode);
 
         return $this->sendSuccess([
             'data' => [
@@ -244,7 +251,8 @@ class SettingsController extends Controller
         return $this->sendSuccess([
             'data' => [
                 'custom_css' => get_post_meta($tableId, '_ninja_tables_custom_css', true),
-                'custom_js'  => get_post_meta($tableId, '_ninja_tables_custom_js', true)
+                'custom_js'  => get_post_meta($tableId, '_ninja_tables_custom_js', true),
+                'can_edit_custom_js' => ninjaTablesCanUnfilteredHTML()
             ]
         ], 200);
     }

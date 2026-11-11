@@ -102,27 +102,7 @@ class TableExporter
                 }
             }
 
-            $matas   = get_post_meta($tableId);
-            $allMeta = array();
-
-            $excludedMetaKeys = array(
-                '_ninja_table_cache_object',
-                '_ninja_table_cache_html',
-                '_external_cached_data',
-                '_last_external_cached_time',
-                '_last_edited_by',
-                '_last_edited_time',
-                '__ninja_cached_table_html'
-            );
-
-            foreach ($matas as $metaKey => $metaValue) {
-                if (!in_array($metaKey, $excludedMetaKeys)) {
-                    if (isset($metaValue[0])) {
-                        $metaValue         = maybe_unserialize($metaValue[0]);
-                        $allMeta[$metaKey] = $metaValue;
-                    }
-                }
-            }
+            $allMeta = self::exportableMetas($tableId);
 
             $exportData = array(
                 'post'          => $table,
@@ -484,6 +464,11 @@ class TableExporter
             if (!in_array($metaKey, $excludedMetaKeys) && isset($metaValue[0])) {
                 $allMeta[$metaKey] = maybe_unserialize($metaValue[0]);
             }
+        }
+
+        // An export file travels, so the database password stays on this site: it is re-entered after import.
+        if (isset($allMeta['_ninja_tables_sql_connection_details']['db_userpassword'])) {
+            $allMeta['_ninja_tables_sql_connection_details']['db_userpassword'] = '';
         }
 
         return $allMeta;

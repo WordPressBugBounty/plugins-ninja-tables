@@ -315,8 +315,8 @@ JS;
         $tableCount          = wp_count_posts($cptName);
         $totalPublishedTable = 0;
         $totalTrashedTable   = 0;
-        $publish             = property_exists($tableCount, "publish") ? $tableCount->publish : 0;
-        $trash               = property_exists($tableCount, "trash") ? $tableCount->trash : 0;
+        $publish             = property_exists($tableCount, "publish") ? (int) $tableCount->publish : 0;
+        $trash               = property_exists($tableCount, "trash") ? (int) $tableCount->trash : 0;
 
         // Decided once, the first time this version opens the admin app: a site that already
         // has tables is upgrading (and gets the "what moved" banner); one with none is new.

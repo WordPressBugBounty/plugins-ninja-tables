@@ -122,7 +122,8 @@ class ImportController extends Controller
             return false;
         }
 
-        $tableId = $adapter->migrateTable($tableId);
+        $engine  = Sanitizer::sanitizeTextField(Arr::get($request->all(), 'render_engine', 'footable'));
+        $tableId = $adapter->setEngine($engine)->migrateTable($tableId);
         if (is_wp_error($tableId)) {
             return $this->sendError([
                 'data' => [

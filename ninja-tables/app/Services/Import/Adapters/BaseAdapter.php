@@ -9,6 +9,7 @@ if (!defined('ABSPATH')) {
 /**
  * Base for importers that pull tables out of other table plugins.
  */
+use NinjaTables\App\Modules\DataTables\Database\DynamicTableManager;
 use NinjaTables\App\Services\Table\Engine;
 use NinjaTables\App\Services\Table\RowWriter;
 
@@ -16,6 +17,21 @@ abstract class BaseAdapter
 {
 
     protected $cpt_name = 'ninja-table';
+
+    // Engine the imported table is created with (footable | datatables)
+    protected $engine = Engine::FOOTABLE;
+
+    /**
+     * @param string $engine footable | datatables; anything else falls back to footable
+     *
+     * @return $this
+     */
+    public function setEngine($engine)
+    {
+        $this->engine = $engine === Engine::DATATABLES ? Engine::DATATABLES : Engine::FOOTABLE;
+
+        return $this;
+    }
 
     abstract function getTables();
 
@@ -47,9 +63,42 @@ abstract class BaseAdapter
         ));
     }
 
+    /**
+     * The Ninja table a source table was imported into, if it still exists.
+     *
+     * @param int|string $ninjaTableId
+     *
+     * @return int 0 when nothing was imported or the table is gone/trashed
+     */
+    protected function liveTableId($ninjaTableId)
+    {
+        $ninjaTableId = (int) $ninjaTableId;
+        if (!$ninjaTableId || get_post_type($ninjaTableId) !== $this->cpt_name) {
+            return 0;
+        }
+
+        return get_post_status($ninjaTableId) === 'trash' ? 0 : $ninjaTableId;
+    }
+
+    /**
+     * One row of the "tables in another plugin" list.
+     */
+    protected function tableEntry($id, $title, $linkedTableId)
+    {
+        $liveId = $this->liveTableId($linkedTableId);
+
+        return array(
+            'ID'             => $id,
+            'post_title'     => $title,
+            'ninja_table_id' => $liveId ?: false,
+            // Imported once, but that Ninja table was deleted since
+            'import_stale'   => !$liveId && (int) $linkedTableId > 0,
+        );
+    }
+
     public function addRows($tableId, $rows)
     {
-        (new RowWriter($tableId, Engine::FOOTABLE))->insert($rows);
+        (new RowWriter($tableId, $this->engine))->insert($rows);
     }
 
     public function initTableConfiguration($tableId, $headers)
@@ -68,10 +117,12 @@ abstract class BaseAdapter
             $ninjaTableColumns);
 
         // ninja_table_settings
-        $ninjaTableSettings = ninja_table_get_table_settings($tableId,
-            'admin');
-        update_post_meta($tableId, '_ninja_table_settings',
-            $ninjaTableSettings);
+        // Same settings a file import writes (TableImporter::storeTableConfigWhenImporting)
+        $ninjaTableSettings                = ninja_table_get_table_settings($tableId, 'admin');
+        $ninjaTableSettings['library']     = $this->engine;
+        $ninjaTableSettings['render_type'] = 'legacy_table';
+        $ninjaTableSettings                = ninja_tables_normalize_dt_css_classes($ninjaTableSettings);
+        update_post_meta($tableId, '_ninja_table_settings', $ninjaTableSettings);
         ninjaTablesClearTableDataCache($tableId);
     }
 
@@ -87,6 +138,11 @@ abstract class BaseAdapter
     {
         $data           = array();
         $column_counter = 1;
+        $dataTables     = $this->engine === Engine::DATATABLES;
+        // DataTables keys become SQL column names (truncated to 64 chars), so two
+        // keys must stay distinct as column names, not just as array keys.
+        $tableManager = $dataTables ? new DynamicTableManager(0) : null;
+        $columnNames  = array();
         foreach ($header as $item) {
             $item = trim(wp_strip_all_tags($item));
 
@@ -99,10 +155,28 @@ abstract class BaseAdapter
 
             $key = sanitize_title($key, 'ninja_column_' . $column_counter, 'display');
 
-            $counter = 1;
-            while (isset($data[$key])) {
-                $key .= '_' . $counter;
-                $counter++;
+            if ($dataTables) {
+                // Leave room under the 64-char column limit for "col_" and a "_N" suffix
+                $key = substr($key, 0, 50);
+
+                // DataTables stores columns as real DB columns; "id", "position"... are taken
+                if (DynamicTableManager::isReservedColumnKey($key)) {
+                    $key .= '_col';
+                }
+
+                $base    = $key;
+                $counter = 1;
+                while (isset($data[$key]) || isset($columnNames[$tableManager->sanitizeColumnName($key)])) {
+                    $key = $base . '_' . $counter;
+                    $counter++;
+                }
+                $columnNames[$tableManager->sanitizeColumnName($key)] = true;
+            } else {
+                $counter = 1;
+                while (isset($data[$key])) {
+                    $key .= '_' . $counter;
+                    $counter++;
+                }
             }
             $data[$key] = $item;
 

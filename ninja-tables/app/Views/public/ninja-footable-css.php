@@ -204,7 +204,7 @@
 <?php if($cellStyles): ?>
     <?php foreach ($cellStyles as $ninja_tables_cellStyle): ?>
         <?php
-        $ninja_tables_cell = maybe_unserialize($ninja_tables_cellStyle->settings);
+        $ninja_tables_cell = \NinjaTables\App\Support\Sanitize::rowSettings($ninja_tables_cellStyle->settings);
         $ninja_tables_cellPrefix = $css_prefix.'.ninja_footable.ninja_table_pro tbody tr.nt_row_id_'.$ninja_tables_cellStyle->id;
         ?>
         <?php echo esc_attr($ninja_tables_cellPrefix)?> {

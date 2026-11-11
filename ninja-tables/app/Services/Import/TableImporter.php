@@ -6,10 +6,13 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+use NinjaTables\App\Http\Controllers\TableBuilderController;
 use NinjaTables\App\Support\Csv;
+use NinjaTables\App\Support\Sanitize;
 use NinjaTables\App\Modules\DataTables\Database\DynamicTableManager;
 use NinjaTables\App\Services\Table\Engine;
 use NinjaTables\App\Services\Table\RowWriter;
+use NinjaTables\App\Traits\WpPostTrait;
 use NinjaTables\Framework\Support\Arr;
 use NinjaTables\Framework\Support\Sanitizer;
 
@@ -19,6 +22,8 @@ use NinjaTables\Framework\Support\Sanitizer;
  */
 class TableImporter
 {
+    use WpPostTrait;
+
     const CPT = 'ninja-table';
 
     const CSV_MIMES = [
@@ -109,6 +114,11 @@ class TableImporter
             // phpcs:enable WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
 
+        if ($this->setsUpRawSql((array) Arr::get($content, 'metas', [])) && !$this->canUseRawSql()) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- message is JSON payload for the Vue app, not HTML output
+            throw new ImportException(['message' => __('This file contains a Custom SQL table. You do not have permission to import it.', 'ninja-tables')], 403, true);
+        }
+
         $tableId = $this->createTable([
             'post_title'   => Sanitizer::ksesPost($content['post']['post_title']),
             'post_content' => wp_kses_post($content['post']['post_content']),
@@ -118,9 +128,37 @@ class TableImporter
 
         update_post_meta($tableId, '_ninja_table_columns', ninja_tables_sanitize_array($content['columns']));
 
+        // Caches and edit history belong to the site that wrote them: from a file they could plant rendered output.
+        $notImportable = [
+            '_ninja_table_columns', // stored sanitised above
+            '_ninja_table_cache_object',
+            '_ninja_table_cache_html',
+            '_external_cached_data',
+            '_last_external_cached_time',
+            '_last_edited_by',
+            '_last_edited_time',
+            '__ninja_cached_table_html',
+            '__ninja_cached_table_html_policy',
+            '__last_ninja_table_last_cached_time',
+        ];
+
         foreach ($content['metas'] as $metaKey => $metaValue) {
-            if ($metaKey === '_ninja_table_columns') {
-                continue; // stored sanitised above
+            // update_post_meta() unslashes the key and MySQL ignores case, accents and trailing
+            // spaces when matching it, so only a plain key can be compared reliably.
+            if (!preg_match('/^[A-Za-z0-9_.:-]+$/D', (string) $metaKey) || in_array(strtolower($metaKey), $notImportable, true)) {
+                continue;
+            }
+            if (strtolower($metaKey) === '_ninja_table_builder_table_html') {
+                if (!is_string($metaValue)) {
+                    continue;
+                }
+                $metaValue = $this->filterBuilderHtml($metaValue);
+            }
+            if (strtolower($metaKey) === '_ninja_tables_custom_js' && !ninjaTablesCanUnfilteredHTML()) {
+                continue;
+            }
+            if (strtolower($metaKey) === '_ninja_table_builder_table_settings') {
+                $metaValue = $this->keepStoredCustomJs($tableId, $metaValue);
             }
             update_post_meta($tableId, $metaKey, $metaValue);
         }
@@ -270,7 +308,8 @@ class TableImporter
     }
 
     /**
-     * Ninja JSON exports carry the raw item rows; restore them verbatim (ids, timestamps, positions).
+     * Ninja JSON exports carry the raw item rows; restore their timestamps, positions and owner.
+     * The row id is never restored: the database assigns a new one.
      */
     protected function restoreOriginalRows($tableId, array $originalRows)
     {
@@ -278,10 +317,88 @@ class TableImporter
         $tableName = $wpdb->prefix . ninja_tables_db_table_name();
 
         foreach ($originalRows as $row) {
-            $row['table_id'] = $tableId;
-            $row['value']    = wp_json_encode($row['value'], JSON_UNESCAPED_UNICODE);
-            $wpdb->insert($tableName, $row, false); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
+            if (!is_array($row)) {
+                continue;
+            }
+            $restorable             = $this->restorableColumns($row);
+            $restorable['table_id'] = $tableId;
+            $wpdb->insert($tableName, $restorable, false); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
         }
+    }
+
+    /**
+     * The file is untrusted. $wpdb->insert() does not escape column names, so only
+     * known columns may pass, and their values must be plain data.
+     */
+    private function restorableColumns(array $row)
+    {
+        $columns = array_intersect_key($row, array_flip(['position', 'owner_id', 'attribute', 'created_at', 'updated_at']));
+        $columns = array_filter($columns, fn($value) => $value === null || is_scalar($value));
+
+        $settings = $this->safeRowSettings(Arr::get($row, 'settings'));
+        if ($settings !== null) {
+            $columns['settings'] = $settings;
+        }
+
+        $columns['value'] = wp_json_encode(Arr::get($row, 'value', []), JSON_UNESCAPED_UNICODE);
+
+        return $columns;
+    }
+
+    /**
+     * Row settings are later read with maybe_unserialize(), which instantiates any
+     * class. Keep them only as a re-serialized array that holds no object.
+     *
+     * @return string|null
+     */
+    private function safeRowSettings($settings)
+    {
+        $settings = Sanitize::rowSettings($settings);
+
+        return $settings === null ? null : serialize($settings); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.serialize_serialize -- same format as the column's other writers
+    }
+
+    /**
+     * A raw SQL table runs its stored query on every render, so setting one up needs the
+     * same permission as creating one in Pro. Values and keys are read as they will be stored.
+     */
+    private function setsUpRawSql(array $metas)
+    {
+        $sqlMetas = ['_ninja_table_raw_sql_query', '_ninja_tables_sql_connection_type', '_ninja_tables_sql_connection_details'];
+
+        foreach ($metas as $metaKey => $metaValue) {
+            $metaKey = strtolower((string) $metaKey);
+            if (in_array($metaKey, $sqlMetas, true)) {
+                return true;
+            }
+            if ($metaKey === '_ninja_tables_data_provider' && is_string($metaValue) && strcasecmp(trim(wp_unslash($metaValue)), 'raw_sql') === 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function canUseRawSql()
+    {
+        return apply_filters('ninja_table_sql_permission', current_user_can('manage_options') ? 'yes' : 'no') === 'yes';
+    }
+
+    /**
+     * The same filtering as a builder save (TableBuilderController::update()). The result
+     * is slashed because update_post_meta() unslashes: a slash removed after filtering
+     * could otherwise rebuild what the filter removed.
+     */
+    private function filterBuilderHtml($html)
+    {
+        $html = ninjaTablesEscapeScript(wp_unslash($html));
+
+        if (!ninjaTablesCanUnfilteredHTML()) {
+            ninja_tables_allowed_css_properties();
+            $html = wp_kses((new TableBuilderController())->convertRGBtoHex($html), ninja_tables_allowed_html_tags());
+        }
+
+        return wp_slash($html);
     }
 
     protected function assertNoReservedKeys($columnsOrKeys)

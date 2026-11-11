@@ -168,6 +168,7 @@ class CsvChunkImporter
     private function processLockedChunk(array $input)
     {
         $ownedJob = null; // set once the caller is confirmed as the job's owner
+        $token    = '';
         try {
             $token            = Sanitizer::sanitizeTextField(Arr::get($input, 'token'));
             $requestedChunk   = intval(Arr::get($input, 'chunk_size', 0));
@@ -320,11 +321,9 @@ class CsvChunkImporter
             if ($this->isLockLost($throwable)) {
                 throw $throwable; // another worker owns the job: leave it and its files alone
             }
-            if (!empty($token)) {
-                delete_transient(self::JOB_PREFIX . $token);
-            }
-            // Only the owner's failure may delete the job's temp files.
+            // Only the owner's failure may delete the job and its temp files.
             if ($ownedJob) {
+                delete_transient(self::JOB_PREFIX . $token);
                 $this->cleanupJobFiles($ownedJob);
             }
 
@@ -424,7 +423,7 @@ class CsvChunkImporter
         $suffix   = self::UPLOAD_SUFFIX;
         if (
             !$realPath || !$realDir
-            || strpos($realPath, trailingslashit($realDir)) !== 0
+            || !self::isInsideDir($realPath, $realDir)
             || substr($realPath, -strlen($suffix)) !== $suffix
         ) {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- message is JSON payload for the Vue app, not HTML output
@@ -937,7 +936,16 @@ class CsvChunkImporter
             return false;
         }
 
-        return strpos($realPath, $baseDir) === 0;
+        return self::isInsideDir($realPath, $baseDir);
+    }
+
+    /**
+     * Both paths come from realpath(), which uses "\" on Windows, so they are normalized before
+     * comparing. The trailing slash makes this a directory check: "uploads-other" is not inside "uploads".
+     */
+    private static function isInsideDir($path, $dir)
+    {
+        return strpos(wp_normalize_path($path), trailingslashit(wp_normalize_path($dir))) === 0;
     }
 
     private function getImportJobTtl()

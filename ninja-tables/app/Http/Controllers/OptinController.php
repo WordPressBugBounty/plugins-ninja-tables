@@ -27,7 +27,7 @@ class OptinController extends Controller
     {
         $counts = wp_count_posts('ninja-table');
 
-        return $counts && isset($counts->publish) ? (int) $counts->publish : 0;
+        return isset($counts->publish) ? (int) $counts->publish : 0;
     }
 
     /**

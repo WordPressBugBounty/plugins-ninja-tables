@@ -158,6 +158,7 @@ class TableBuilderController extends Controller
             'data' => [
                 'settings'          => DynamicConfig::getSetting($table_settings, $initConfig->settingConfig()),
                 'responsive'        => DynamicConfig::getResponsive($table_responsive, $initConfig->responsiveConfig()),
+                'can_edit_custom_js' => ninjaTablesCanUnfilteredHTML(),
                 'components'        => $components,
                 'ready_made_tables' => $ready_made_tables,
                 'needs_html'        => $needs_html,
