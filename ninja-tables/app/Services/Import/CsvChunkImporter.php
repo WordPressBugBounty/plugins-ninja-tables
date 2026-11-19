@@ -22,6 +22,8 @@ class CsvChunkImporter
 {
     const CPT = 'ninja-table';
     const JOB_PREFIX = 'ninja_tables_csv_import_job_';
+    // Row numbers kept for the "could not be stored" report; the count covers the rest
+    const FAILED_ROW_NUMBERS_KEPT = 50;
     const WORK_DIR = 'ninja-tables-import';
 
     /** @var array|null the lock the current /process request holds (fencing checks use it) */
@@ -238,12 +240,13 @@ class CsvChunkImporter
                 ninjaTablesClearTableDataCache($tableId);
 
                 return [
-                    'message' => __('Import completed successfully.', 'ninja-tables'),
+                    'message' => $this->completedMessage($job),
                     'data'    => [
                         'completed'      => true,
                         'tableId'        => $tableId,
                         'processed_rows' => $processedRows,
                         'total_rows'     => $totalRows,
+                        'failed_rows'    => (int)Arr::get($job, 'failed_rows', 0),
                         'phase'          => 'importing'
                     ]
                 ];
@@ -260,18 +263,21 @@ class CsvChunkImporter
             $maxBytes  = max(65536, (int)apply_filters('ninja_tables_import_batch_max_bytes', 4 * MB_IN_BYTES));
             $chunkSize = max(1, min($chunkSize, intdiv($maxCells, max(1, count($headerKeys)))));
 
-            $chunkResult = $this->readCsvChunk($filePath, $cursor, $chunkSize, $escape, $maxBytes);
+            $recordsRead = (int)Arr::get($job, 'records_read', $processedRows);
+            $chunkResult = $this->readCsvChunk($filePath, $cursor, $chunkSize, $escape, $maxBytes, $recordsRead);
             if (is_wp_error($chunkResult)) {
                 throw new ImportException([
                     'data' => ['message' => $chunkResult->get_error_message()]
                 ], 422);
             }
 
-            $chunkRows = Arr::get($chunkResult, 'rows', []);
-            $nextCursor = (int)Arr::get($chunkResult, 'next_cursor', $cursor);
+            $chunkRows     = Arr::get($chunkResult, 'rows', []);
+            $recordNumbers = (array)Arr::get($chunkResult, 'record_numbers', []);
+            $nextCursor    = (int)Arr::get($chunkResult, 'next_cursor', $cursor);
 
-            $rows = [];
-            foreach ($chunkRows as $item) {
+            $rows       = [];
+            $rowNumbers = []; // record number in the file, blank records included (1 = first record after the header)
+            foreach ($chunkRows as $position => $item) {
                 if (!is_array($item)) {
                     continue;
                 }
@@ -284,17 +290,34 @@ class CsvChunkImporter
                     }, $item);
                 }
 
-                $rows[] = array_combine($headerKeys, $item);
+                $rows[]       = array_combine($headerKeys, $item);
+                $rowNumbers[] = (int)Arr::get($recordNumbers, $position, $processedRows + $position + 1);
             }
 
             if ($rows) {
                 $this->assertStillLocked(); // fencing: never insert rows without the lock
                 $engine = $renderEngine === 'datatables' ? Engine::DATATABLES : Engine::FOOTABLE;
-                (new RowWriter($tableId, $engine))->insert($rows);
+                $writer = new RowWriter($tableId, $engine);
+                $writer->insert($rows);
+
+                // Rows MySQL refused: count them and keep the first few row numbers for the report
+                $failedKeys = $writer->failedKeys();
+                if ($failedKeys) {
+                    $job['failed_rows'] = (int)Arr::get($job, 'failed_rows', 0) + count($failedKeys);
+                    $numbers            = (array)Arr::get($job, 'failed_row_numbers', []);
+                    foreach ($failedKeys as $key) {
+                        if (count($numbers) >= self::FAILED_ROW_NUMBERS_KEPT) {
+                            break;
+                        }
+                        $numbers[] = $rowNumbers[$key];
+                    }
+                    $job['failed_row_numbers'] = $numbers;
+                }
             }
 
             $processedRows += count($chunkRows);
             $job['processed_rows'] = $processedRows;
+            $job['records_read']   = (int)Arr::get($chunkResult, 'records_read', $recordsRead + count($chunkRows));
             $job['cursor']         = $nextCursor;
             $this->assertStillLocked(); // fencing: never publish a checkpoint without the lock
             set_transient(self::JOB_PREFIX . $token, $job, $this->getImportJobTtl());
@@ -307,13 +330,14 @@ class CsvChunkImporter
 
             return [
                 'message' => $completed
-                    ? __('Import completed successfully.', 'ninja-tables')
+                    ? $this->completedMessage($job)
                     : __('Import chunk processed.', 'ninja-tables'),
                 'data'    => [
                     'completed'      => $completed,
                     'tableId'        => $tableId,
                     'processed_rows' => $processedRows,
                     'total_rows'     => $totalRows,
+                    'failed_rows'    => (int)Arr::get($job, 'failed_rows', 0),
                     'phase'          => 'importing'
                 ]
             ];
@@ -743,6 +767,36 @@ class CsvChunkImporter
         ];
     }
 
+    /**
+     * "Import completed successfully." only when every row was stored; otherwise say how
+     * many rows were imported and which ones could not be stored.
+     */
+    private function completedMessage(array $job)
+    {
+        $failed = (int)Arr::get($job, 'failed_rows', 0);
+        if (!$failed) {
+            return __('Import completed successfully.', 'ninja-tables');
+        }
+
+        $read    = (int)Arr::get($job, 'processed_rows', 0);
+        $numbers = (array)Arr::get($job, 'failed_row_numbers', []);
+        $list    = implode(', ', $numbers) . ($failed > count($numbers) ? ', …' : '');
+
+        return sprintf(
+            /* translators: 1: rows stored, 2: rows in the file, 3: rows not stored, 4: comma-separated row numbers */
+            _n(
+                'Imported %1$d of %2$d rows. %3$d row could not be stored (row %4$s, counting from the first row after the header). Check it for unusual characters or a very long value.',
+                'Imported %1$d of %2$d rows. %3$d rows could not be stored (rows %4$s, counting from the first row after the header). Check them for unusual characters or very long values.',
+                $failed,
+                'ninja-tables'
+            ),
+            max(0, $read - $failed),
+            $read,
+            $failed,
+            $list
+        );
+    }
+
     private function endJob($token, array $job)
     {
         delete_transient(self::JOB_PREFIX . $token);
@@ -869,9 +923,11 @@ class CsvChunkImporter
     }
 
     /**
-     * @param int $maxBytes stop once this many CSV bytes are read (0 = rows only); always reads at least one row
+     * @param int $maxBytes      stop once this many CSV bytes are read (0 = rows only); always reads at least one row
+     * @param int $recordsBefore CSV records already read past the header, blank ones included, so record numbers
+     *                           stay file positions across chunks
      */
-    private function readCsvChunk($filePath, $cursor, $chunkSize, $escape = Csv::ESCAPE, $maxBytes = 0)
+    private function readCsvChunk($filePath, $cursor, $chunkSize, $escape = Csv::ESCAPE, $maxBytes = 0, $recordsBefore = 0)
     {
         // Streaming CSV read requires native fopen/fseek/fgetcsv; WP_Filesystem has no equivalent.
         $handle = fopen($filePath, 'r'); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen
@@ -884,14 +940,19 @@ class CsvChunkImporter
             return new \WP_Error('csv_seek_failed', __('Unable to seek CSV file.', 'ninja-tables'));
         }
 
-        $rows  = [];
-        $start = (int)$cursor;
+        $rows          = [];
+        $recordNumbers = [];
+        $record        = (int)$recordsBefore;
+        $start         = (int)$cursor;
         while (count($rows) < $chunkSize && ($row = fgetcsv($handle, 0, ',', '"', $escape)) !== false) {
+            $record++;
+
             if ($this->isCsvRowEmpty($row)) {
                 continue;
             }
 
-            $rows[] = $row;
+            $rows[]          = $row;
+            $recordNumbers[] = $record;
 
             if ($maxBytes > 0 && ftell($handle) - $start >= $maxBytes) {
                 break;
@@ -902,8 +963,10 @@ class CsvChunkImporter
         fclose($handle); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
 
         return [
-            'rows'       => $rows,
-            'next_cursor'=> $nextCursor > 0 ? (int)$nextCursor : (int)$cursor
+            'rows'           => $rows,
+            'record_numbers' => $recordNumbers,
+            'records_read'   => $record,
+            'next_cursor'    => $nextCursor > 0 ? (int)$nextCursor : (int)$cursor
         ];
     }
 

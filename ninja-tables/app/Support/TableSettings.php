@@ -156,6 +156,9 @@ class TableSettings
         if ( ! $settings) {
             $settings = array();
         }
+        // New tables copy these defaults into their own settings, so they must never carry the
+        // shortcode opt-in: it is per table and goes through guardShortcodeOptIn().
+        unset($settings['execute_shortcodes']);
         $settings = wp_parse_args($settings, $defaults);
 
         return apply_filters('ninja_tables/get_default_ninja_table_settings', $settings);
@@ -223,16 +226,54 @@ class TableSettings
 
     /**
      * Only admin-authored cells (default provider) are trusted to run shortcodes.
-     * Other providers can hold attacker-controlled values (e.g. Fluent Forms entries).
+     * Other providers can hold attacker-controlled values (e.g. Fluent Forms entries),
+     * so they run shortcodes only when an admin opts the table in ("Run shortcodes in cells").
      */
     public static function providerExecutesShortcodes($tableId)
     {
         $provider = self::getDataProvider($tableId);
 
         $trusted = apply_filters('ninja_tables_shortcode_trusted_providers', array('default'), $tableId, $provider);
-        $allowed = in_array($provider, (array)$trusted, true);
+        $allowed = in_array($provider, (array)$trusted, true) || self::shortcodesOptedIn($tableId);
 
         return (bool)apply_filters('ninja_tables_provider_allows_shortcodes', $allowed, $provider, $tableId);
+    }
+
+    /**
+     * The per-table opt-in, stored as execute_shortcodes = 'yes' in _ninja_table_settings.
+     */
+    public static function shortcodesOptedIn($tableId)
+    {
+        $settings = get_post_meta($tableId, '_ninja_table_settings', true);
+
+        return is_array($settings) && Arr::get($settings, 'execute_shortcodes') === 'yes';
+    }
+
+    /**
+     * Only users who can publish unfiltered HTML may turn the opt-in on: it lets whoever
+     * writes the source data (form submitters, sheet editors) run shortcodes. Turning it
+     * off is always allowed.
+     *
+     * @param array $settings Incoming settings about to be saved.
+     * @param int   $tableId
+     * @return array
+     */
+    public static function guardShortcodeOptIn($settings, $tableId)
+    {
+        if (!is_array($settings) || !array_key_exists('execute_shortcodes', $settings)) {
+            return $settings;
+        }
+
+        if ($settings['execute_shortcodes'] !== 'yes') {
+            $settings['execute_shortcodes'] = 'no';
+            return $settings;
+        }
+
+        if (!self::shortcodesOptedIn($tableId) && !ninjaTablesCanUnfilteredHTML()) {
+            $settings['execute_shortcodes'] = 'no';
+        }
+
+        return $settings;
     }
 
     public static function renderCellShortcode($value, $execute)

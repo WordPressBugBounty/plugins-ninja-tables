@@ -288,7 +288,10 @@ class AjaxHandler
             // mutation, so a row edit changes the key and the stale options list
             // is never re-read (FIX-PLAN #6).
             $cacheVersion = (int) get_post_meta($tableId, '_nt_dt_fopts_version', true);
-            $cacheKey    = ($cacheTtl > 0 && $isCanonical)
+            // "Own data only" tables must scope options to the viewer's rows, the same
+            // as handleAjax(). Their options differ per viewer, so they are never cached.
+            $ownOnly     = (bool) apply_filters('ninja_tables_public_force_own_only', false, $tableId);
+            $cacheKey    = ($cacheTtl > 0 && $isCanonical && !$ownOnly)
                 ? 'nt_dt_fopts_' . md5($tableId . '|' . $cacheVersion . '|' . wp_json_encode($lockedFilters) . '|' . implode(',', $columns))
                 : '';
             if ($cacheKey) {
@@ -301,6 +304,11 @@ class AjaxHandler
             $dynamicRow = new DynamicRow($tableId);
             if (!$dynamicRow->tableExists()) {
                 wp_send_json(['options' => []]);
+            }
+
+            if ($ownOnly) {
+                $viewerId = get_current_user_id();
+                $dynamicRow->restrictToOwner($viewerId > 0 ? $viewerId : -1);
             }
 
             $options = [];

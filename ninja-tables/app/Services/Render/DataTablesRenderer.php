@@ -36,6 +36,10 @@ class DataTablesRenderer extends AbstractTableRenderer
         }
 
         $instanceName = 'ninja_dt_instance_' . static::$instanceCount++;
+        if (InlineScript::printNow()) {
+            // Each Elementor editor render is a separate request whose counter restarts at 0.
+            $instanceName .= '_' . wp_rand();
+        }
 
         $tableArray = $this->prepare($tableArray, 'ninja_dt_unique_id_');
         $settings   = $tableArray['settings'];
@@ -339,7 +343,7 @@ class DataTablesRenderer extends AbstractTableRenderer
         return [TableClasses::toString($classes), $tableHasColor];
     }
 
-    protected function enqueueAssets()
+    public function enqueueAssets()
     {
         $assets = App::getInstance()['url.assets'];
 
@@ -363,7 +367,7 @@ class DataTablesRenderer extends AbstractTableRenderer
         wp_add_inline_script('ninja_dt_init', 'if(!window.ninja_footables){window.ninja_footables=' . $polyfill . ';}', 'before');
     }
 
-    protected function enqueueResponsiveAssets()
+    public function enqueueResponsiveAssets()
     {
         $assets = App::getInstance()['url.assets'];
 

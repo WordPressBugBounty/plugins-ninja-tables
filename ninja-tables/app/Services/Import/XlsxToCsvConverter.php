@@ -50,6 +50,9 @@ class XlsxToCsvConverter
     // would make buildHeader() allocate an array sized by an attacker's cell ref.
     const MAX_COLUMNS = 16384;
 
+    /** Excel's last row; caps the blank lines a bogus row number could add to the temp CSV. */
+    const MAX_ROWS = 1048576;
+
     // Offsets in the shared-strings index are 32-bit, so the strings file must stay under 4 GB.
     const SST_MAX_BYTES = 4294967295;
 
@@ -276,6 +279,8 @@ class XlsxToCsvConverter
                 'header'         => [],
                 'rows_written'   => 0,
                 'csv_size'       => 0,
+                'seen_row'       => 0, // sheet row number of the last <row> read
+                'last_row'       => 0, // sheet row number of the header or last row written
             ];
         } catch (\Throwable $e) {
             if ($zipOpen) {
@@ -471,19 +476,27 @@ class XlsxToCsvConverter
         $csvSize = (int)$state['csv_size'];
         $header  = $state['header'];
         $written = (int)$state['rows_written'];
+        // A state saved before row tracking existed (job mid-conversion during an update) has no
+        // last_row: keep its old behaviour rather than guess the gaps.
+        $track   = array_key_exists('last_row', $state);
+        $seenRow = (int)($state['seen_row'] ?? 0);
+        $lastRow = (int)($state['last_row'] ?? 0);
 
         try {
             $this->resetTo($csv, $csvSize);
 
             $scan = $this->scanFragments($files['sheet'], (int)$state['sheet_offset'], 'row', $maxRows, $deadline,
-                function ($fragment) use (&$header, &$written, &$csvSize, $csv, $line, $state) {
+                function ($fragment) use (&$header, &$written, &$csvSize, &$seenRow, &$lastRow, $track, $csv, $line, $state) {
+                    $seenRow = $this->sheetRowNumber($fragment, $seenRow);
+
                     $cells = $this->parseRow($fragment, $state);
                     if (!$cells) {
                         return;
                     }
 
                     if (!$header) {
-                        $header = $this->buildHeader($cells);
+                        $header  = $this->buildHeader($cells);
+                        $lastRow = $seenRow;
                         return;
                     }
 
@@ -497,6 +510,16 @@ class XlsxToCsvConverter
                     if (implode('', $row) === '') {
                         return;
                     }
+
+                    // Blank or missing sheet rows since the last one written become empty CSV
+                    // lines: the importer skips them as rows but counts them, so the row numbers
+                    // it reports for failed rows match the sheet.
+                    $gap = $track ? $seenRow - $lastRow - 1 : 0;
+                    if ($gap > 0) {
+                        $this->writeAll($csv, str_repeat("\n", $gap));
+                        $csvSize += $gap;
+                    }
+                    $lastRow = $seenRow;
 
                     // Format in memory first: fputcsv() can't report a short write to disk,
                     // writeAll() can. Explicit escape also avoids PHP 8.4's deprecation.
@@ -533,6 +556,10 @@ class XlsxToCsvConverter
         $state['rows_written'] = $written;
         $state['csv_size']     = $csvSize;
         $state['sheet_offset'] = $scan['offset'];
+        if ($track) {
+            $state['seen_row'] = $seenRow;
+            $state['last_row'] = $lastRow;
+        }
 
         if ($scan['eof']) {
             if (!$header) {
@@ -545,6 +572,22 @@ class XlsxToCsvConverter
         }
 
         return $state;
+    }
+
+    /**
+     * Sheet row number of a <row> fragment: its r attribute, or the next row when r is
+     * missing, out of Excel's range, or not after the previous row (damaged or hand-made files).
+     */
+    protected function sheetRowNumber($fragment, $previous)
+    {
+        $next = $previous + 1;
+        if (!preg_match('/^<(?:[\w.-]+:)?row\b[^>]*?\sr\s*=\s*["\'](\d{1,7})["\']/', $fragment, $m)) {
+            return $next;
+        }
+
+        $row = (int)$m[1];
+
+        return ($row > $previous && $row <= self::MAX_ROWS) ? $row : $next;
     }
 
     /**

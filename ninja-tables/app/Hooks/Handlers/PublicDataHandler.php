@@ -9,6 +9,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 use NinjaTables\App\App;
 use NinjaTables\App\Services\Render\AbstractTableRenderer;
 use NinjaTables\App\Services\Render\CssGenerator;
+use NinjaTables\App\Services\Render\DataTablesRenderer;
+use NinjaTables\App\Services\Render\FooTableRenderer;
 use NinjaTables\App\Services\Render\InlineScript;
 use NinjaTables\App\Services\Vite;
 use NinjaTables\App\Models\NinjaTableItem;
@@ -22,6 +24,7 @@ class PublicDataHandler
     {
         add_action('init', [$this, 'registerTableRenderFunctions']);
         add_action('wp_enqueue_scripts', [$this, 'enqueueNinjaTableScript'], 100);
+        add_action('elementor/preview/enqueue_scripts', [$this, 'enqueueElementorPreviewAssets']);
         add_action('ninja_tables-render-table-footable', [$this, 'runFooTable']);
         add_action('ninja_tables_inside_table_render', [$this, 'renderTableInsideTable'], 10, 2);
     }
@@ -391,6 +394,64 @@ class PublicDataHandler
                 }
             }
         }
+    }
+
+    /**
+     * Elementor's editor canvas injects widget markup without rendering the shortcode on the
+     * page, so the table scripts/styles are never enqueued there. Each engine's assets are
+     * parked in an inert <template> and only loaded once a widget with that engine's table
+     * shows up, so editor pages without a Ninja table load nothing (no clash with other addons).
+     */
+    public function enqueueElementorPreviewAssets()
+    {
+        $groups = [
+            'common'     => $this->takeEnqueued(function () {
+                wp_enqueue_script('moment'); // date columns need it; normally enqueued at render time
+                NinjaFooTable::enqueuePublicCss();
+            }),
+            'footable'   => $this->takeEnqueued(function () {
+                (new FooTableRenderer())->enqueueAssets();
+            }),
+            'datatables' => $this->takeEnqueued(function () {
+                $dataTables = new DataTablesRenderer();
+                $dataTables->enqueueAssets();
+                $dataTables->enqueueResponsiveAssets();
+            }),
+        ];
+
+        // After wp_print_footer_scripts (20): anything already printed on the page is skipped here.
+        // The tags are stored as a JSON string (every "<" hex-encoded) so caching/optimizer plugins
+        // that scan the page for <script>/<link> tags can't find, move or rewrite them.
+        add_action('wp_footer', function () use ($groups) {
+            foreach ($groups as $name => $handles) {
+                ob_start();
+                wp_styles()->do_items($handles['css']);
+                wp_scripts()->do_items($handles['js']);
+                echo '<script type="application/json" class="ninja-tables-editor-assets" data-group="' . esc_attr($name) . '">'
+                    . wp_json_encode(ob_get_clean(), JSON_HEX_TAG | JSON_HEX_AMP) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- JSON with < > & hex-encoded
+                    . '</script>';
+            }
+            include NINJA_TABLES_DIR_PATH . 'app/Views/public/elementor-editor-loader.php';
+        }, 21);
+    }
+
+    /**
+     * Runs $enqueue, then takes back the handles it added so WordPress doesn't print them.
+     */
+    private function takeEnqueued(callable $enqueue)
+    {
+        $scripts = wp_scripts()->queue;
+        $styles  = wp_styles()->queue;
+
+        $enqueue();
+
+        $js  = array_values(array_diff(wp_scripts()->queue, $scripts, ['vite-client']));
+        $css = array_values(array_diff(wp_styles()->queue, $styles));
+
+        array_map('wp_dequeue_script', $js);
+        array_map('wp_dequeue_style', $css);
+
+        return ['js' => $js, 'css' => $css];
     }
 
     private function renderAdminNotice($message)

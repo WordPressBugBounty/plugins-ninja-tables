@@ -9,6 +9,7 @@ if (!defined('ABSPATH')) {
 use NinjaTables\App\Http\Controllers\TableBuilderController;
 use NinjaTables\App\Support\Csv;
 use NinjaTables\App\Support\Sanitize;
+use NinjaTables\App\Support\TableSettings;
 use NinjaTables\App\Modules\DataTables\Database\DynamicTableManager;
 use NinjaTables\App\Services\Table\Engine;
 use NinjaTables\App\Services\Table\RowWriter;
@@ -131,6 +132,7 @@ class TableImporter
         // Caches and edit history belong to the site that wrote them: from a file they could plant rendered output.
         $notImportable = [
             '_ninja_table_columns', // stored sanitised above
+            '_ninja_table_settings', // written from $content['settings'] below, through the shortcode opt-in guard
             '_ninja_table_cache_object',
             '_ninja_table_cache_html',
             '_external_cached_data',
@@ -165,6 +167,8 @@ class TableImporter
 
         $settings            = $content['settings'];
         $settings['library'] = $renderEngine;
+        // An imported file can't switch on shortcode execution for a user who couldn't do it in the editor
+        $settings            = TableSettings::guardShortcodeOptIn($settings, $tableId);
         $settings            = ninja_tables_normalize_dt_css_classes($settings);
         update_post_meta($tableId, '_ninja_table_settings', $settings);
 

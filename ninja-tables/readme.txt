@@ -4,7 +4,7 @@ Tags: table, table builder, pricing table, comparison table, product table
 Requires at least: 6.0
 Requires PHP: 7.4
 Tested up to: 7.1
-Stable tag: 5.5.1
+Stable tag: 5.5.2
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -461,6 +461,17 @@ Ninja Tables [customer support](https://wpmanageninja.com/account/support-ticket
 
 == Changelog ==
 We released several updates for Ninja Tables in the years of development. These include improvements to the existing features and some wonderful additions to help you design tables more effectively.
+
+= 5.5.2 (Date: November 19, 2026) =
+* Security: Fixed a stored XSS in DataTables tables fed by Fluent Forms entries.
+* Security: Fixed FooTable initialization and own-data-only filter option issues.
+* Added: Run shortcodes in cells option per table.
+* Improved: Gutenberg block design.
+* Fixed: Date and number column sorting.
+* Fixed: Tables render in the Elementor editor.
+* Fixed: Missing source fields when editing Google Sheet and CSV tables.
+* Fixed: No engine choice when uploading a file.
+* Fixed: Legacy rendering description for DataTables tables.
 
 = 5.5.1 (Date: November 10, 2026) =
 * Improved: Import TablePress and Supsystic table

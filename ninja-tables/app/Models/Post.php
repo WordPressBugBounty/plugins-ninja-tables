@@ -6,6 +6,7 @@ use NinjaTables\Framework\Foundation\App;
 use NinjaTables\Framework\Support\Arr;
 use NinjaTables\App\Modules\DataTables\Database\DynamicTableManager;
 use NinjaTables\App\Services\Table\Engine;
+use NinjaTables\App\Support\TableSettings;
 
 class Post extends Model
 {
@@ -346,6 +347,7 @@ class Post extends Model
         }
 
         if ($tablePreference && is_array($tablePreference)) {
+            $tablePreference          = TableSettings::guardShortcodeOptIn($tablePreference, $tableId);
             $formattedTablePreference = ninjaTableNormalize($tablePreference);
             update_post_meta($tableId, '_ninja_table_settings', $formattedTablePreference);
         }

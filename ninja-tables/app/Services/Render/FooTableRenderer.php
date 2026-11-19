@@ -30,6 +30,10 @@ class FooTableRenderer extends AbstractTableRenderer
         global $ninja_table_current_rendering_table;
 
         $instanceName = 'ninja_table_instance_' . count(NinjaFooTable::$tableInstances);
+        if (InlineScript::printNow()) {
+            // Each Elementor editor render is a separate request whose counter restarts at 0.
+            $instanceName .= '_' . wp_rand();
+        }
         NinjaFooTable::$tableInstances[] = $instanceName;
 
         $tableArray['uniqueID']            = 'ninja_table_unique_id_' . wp_rand() . '_' . $tableArray['table_id'];
@@ -44,7 +48,7 @@ class FooTableRenderer extends AbstractTableRenderer
         $this->renderTable($tableArray);
     }
 
-    protected function enqueueAssets()
+    public function enqueueAssets()
     {
         $assets = App::getInstance()['url.assets'];
 

@@ -7,6 +7,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 use NinjaTables\App\Models\NinjaTableItem;
+use NinjaTables\App\Support\DateSort;
 use NinjaTables\Framework\Support\Arr;
 
 class DefaultProvider extends BaseProvider
@@ -119,57 +120,18 @@ class DefaultProvider extends BaseProvider
         }
 
         $dataType      = Arr::get($column, 'data_type');
-        $dateFormat    = Arr::get($column, 'dateFormat');
         $sortingColumn = sanitize_key(Arr::get($column, 'key'));
 
+        // $sortingColumn went through sanitize_key(), so the inline JSON path is safe
+        $value = "JSON_UNQUOTE(JSON_EXTRACT(value, '$.$sortingColumn'))";
+
         if ($dataType === 'number') {
-            $query->orderByRaw("CAST(JSON_UNQUOTE(JSON_EXTRACT(value, '$.$sortingColumn')) AS SIGNED) " . $sortingColumnBy);
-        } else if ($dataType === 'date') {
-            $mysqlDateFormat = $this->convertDateFormatToMysql($dateFormat);
-            $query->orderByRaw("STR_TO_DATE(JSON_UNQUOTE(JSON_EXTRACT(value, '$.$sortingColumn')), '$mysqlDateFormat') " . $sortingColumnBy);
-        } else {
-            $query->orderByRaw("JSON_UNQUOTE(JSON_EXTRACT(value, '$.$sortingColumn')) " . $sortingColumnBy);
+            // DECIMAL, not SIGNED, so 1.2 and 1.5 don't tie (matches the admin sort)
+            $query->orderByRaw("CAST($value AS DECIMAL(30,10)) " . $sortingColumnBy);
+        } elseif ($dataType !== 'date' || !DateSort::orderBy($query, $value, [], $sortingColumnBy, $column)) {
+            $query->orderByRaw("$value " . $sortingColumnBy);
         }
 
         return $query;
-    }
-
-    /**
-     * Convert any date format string to MySQL format
-     *
-     * @param string $dateFormat
-     * @return string
-     */
-    protected function convertDateFormatToMysql($dateFormat)
-    {
-        if (!$dateFormat) {
-            return '%Y-%m-%d';
-        }
-
-        $formatMap = [
-            'DD' => '%d',    // Day of the month, 2 digits with leading zeros
-            'D' => '%e',     // Day of the month without leading zeros
-            'MM' => '%m',    // Month, 2 digits with leading zeros
-            'M' => '%c',     // Month without leading zeros
-            'YYYY' => '%Y',  // Year, 4 digits
-            'YY' => '%y',    // Year, 2 digits
-
-            // Add additional format components if needed
-            'HH' => '%H',    // Hour (00-23)
-            'hh' => '%h',    // Hour (01-12)
-            'mm' => '%i',    // Minutes
-            'ss' => '%s',    // Seconds
-        ];
-
-        // Copy the format string for manipulation
-        $mysqlFormat = $dateFormat;
-
-        // Replace each format component with its MySQL equivalent
-        foreach ($formatMap as $phpFormat => $mysqlFormatEquivalent) {
-            $mysqlFormat = str_replace($phpFormat, $mysqlFormatEquivalent, $mysqlFormat);
-        }
-
-        // Replace any remaining characters (separators like -, /, etc.) as they are
-        return $mysqlFormat;
     }
 }

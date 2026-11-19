@@ -45,7 +45,8 @@
     background-color: <?php echo esc_attr($colors['table_header_color_primary']); ?> !important;
     color: <?php echo esc_attr($colors['table_color_header_secondary']); ?> !important;
     }
-    <?php if($colors['table_color_header_border']): ?>
+    <?php // Header border colour follows the "Bordered table" toggle (dt_bordered). ?>
+    <?php if(!empty($hasBorderedClass) && $colors['table_color_header_border']): ?>
         <?php echo esc_attr($css_prefix); ?>:not(.hide_all_borders) thead tr th {
         border-color: <?php echo esc_attr($colors['table_color_header_border']); ?> !important;
         }

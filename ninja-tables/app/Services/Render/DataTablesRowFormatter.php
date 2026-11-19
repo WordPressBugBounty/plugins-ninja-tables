@@ -70,12 +70,31 @@ class DataTablesRowFormatter
             }
 
             if (is_string($value)) {
-                $value = wp_kses_post($value);
+                $value = wp_kses_post(static::escapeNonTagOpeners($value));
             }
         }
         unset($value);
 
         return $rowData;
+    }
+
+    /**
+     * wp_kses_post() accepts whitespace after "<" and rebuilds "< table ...>" as a real
+     * <table>. sanitize_text_field() (Fluent Forms and others) keeps that string, because
+     * it is not a tag, and a browser also reads it as text. Encode every "<" that a browser
+     * would not start a tag with, so kses cannot create markup the stored data never had.
+     * Kept: "<" + letter, "</" + letter, "<!" (comments).
+     *
+     * Runs before kses on purpose: kses removes null bytes and "\0", which would turn
+     * "<\0table" into "<table" if those were removed first.
+     */
+    protected static function escapeNonTagOpeners(string $value): string
+    {
+        if (strpos($value, '<') === false) {
+            return $value;
+        }
+
+        return preg_replace('~<(?![a-zA-Z!]|/[a-zA-Z])~', '&lt;', $value);
     }
 
     public static function buildColumnTypeMap(array $columns): array

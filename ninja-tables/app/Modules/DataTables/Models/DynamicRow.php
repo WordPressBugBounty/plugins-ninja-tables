@@ -5,6 +5,7 @@ namespace NinjaTables\App\Modules\DataTables\Models;
 use NinjaTables\App\Models\Model;
 use NinjaTables\App\Modules\DataTables\Database\DynamicTableManager;
 use NinjaTables\App\Modules\DataTables\Query\NumericFilter;
+use NinjaTables\App\Support\DateSort;
 use NinjaTables\Framework\Support\Arr;
 
 class DynamicRow
@@ -15,6 +16,14 @@ class DynamicRow
     protected $tableManager;
 
     protected $columns;
+
+    /**
+     * Rows the last batchInsert() could not store: [['index' => int, 'error' => string], ...].
+     * 'index' is the row's 0-based position in the $rows passed in.
+     *
+     * @var array
+     */
+    protected $failedRows = [];
 
     public function __construct($tableId)
     {
@@ -179,7 +188,22 @@ class DynamicRow
         $this->applyCustomFilters($query, $customFilters);
         $this->applyOwnerScope($query);
 
-        $query->orderBy($orderBy, $order);
+        $column = Arr::first($this->columns, function ($column) use ($orderBy) {
+            return $this->tableManager->sanitizeColumnName(Arr::get($column, 'key', '')) === $orderBy;
+        });
+
+        // Cells are stored as text, so date and number columns need their own ordering
+        $type   = Arr::get($column, 'data_type');
+        $sorted = $type === 'date' && DateSort::orderBy($query, "`{$orderBy}`", [], $order, $column);
+        if (!$sorted && $type === 'number') {
+            // Non-numeric text casts to 0; the raw value keeps those in text order
+            $query->orderByRaw(NumericFilter::castExpression($orderBy, $column) . " {$order}")
+                  ->orderBy($orderBy, $order);
+            $sorted = true;
+        }
+        if (!$sorted) {
+            $query->orderBy($orderBy, $order);
+        }
 
         // Stable tie-breaker so offset paging can't drop/duplicate rows that
         // share the ordering value (e.g. duplicate __position).
@@ -224,6 +248,7 @@ class DynamicRow
 
         $this->applySearchConditions($query, $search);
         $this->applyCustomFilters($query, $customFilters);
+        $this->applyOwnerScope($query);
 
         $cap     = apply_filters('ninja_tables_dt_max_filter_options', 2000);
         $results = $query->select($colName)->distinct()->limit($cap)->get();
@@ -566,10 +591,16 @@ protected function numericCastExpression($colName, $column)
      * @param int   $startPosition Starting position index
      * @param int   $chunkSize Number of rows per INSERT query
      *
+     * A multi-row INSERT fails as a whole when one row is bad (a value MySQL or the
+     * table charset rejects), so a failed block is retried row by row: only the rows
+     * that really fail are lost, and they are listed in getFailedRows().
+     *
      * @return int Number of rows inserted
      */
     public function batchInsert($rows, $startPosition = 0, $chunkSize = 1000)
     {
+        $this->failedRows = [];
+
         if (!$this->tableExists() || empty($rows)) {
             return 0;
         }
@@ -596,9 +627,11 @@ protected function numericCastExpression($colName, $column)
             }
         }
 
-        // Build all prepared row data
+        // Build all prepared row data, keyed by the row's position in $rows
         $preparedRows = [];
-        foreach ($rows as $index => $rowValues) {
+        $index        = -1;
+        foreach ($rows as $rowValues) {
+            $index++;
             $data = [
                 DynamicTableManager::COL_POSITION => $startPosition + $index,
                 DynamicTableManager::COL_OWNER_ID => $ownerId,
@@ -609,13 +642,13 @@ protected function numericCastExpression($colName, $column)
                 if (isset($rowValues[$userKey])) {
                     $data[$dbKey] = is_array($rowValues[$userKey])
                         ? json_encode($rowValues[$userKey])
-                        : $rowValues[$userKey];
+                        : self::repairUtf8($rowValues[$userKey]);
                 } else {
                     $data[$dbKey] = null;
                 }
             }
 
-            $preparedRows[] = $data;
+            $preparedRows[$index] = $data;
         }
 
         if (empty($preparedRows)) {
@@ -623,42 +656,122 @@ protected function numericCastExpression($colName, $column)
         }
 
         $inserted = 0;
-        $chunks   = array_chunk($preparedRows, $chunkSize);
 
-        foreach ($chunks as $chunk) {
-            $columns    = array_keys($chunk[0]);
-            sort($columns);
-            $columnList = '`' . implode('`, `', $columns) . '`';
+        // A refused row is recorded in getFailedRows(); printing wpdb's HTML error would
+        // corrupt the JSON response of the import that called us (WP_DEBUG_DISPLAY sites).
+        $suppressed = $wpdb->suppress_errors(true);
 
-            $sql          = "INSERT INTO `{$tableName}` ({$columnList}) VALUES\n";
-            $placeholders = [];
-            $values       = [];
-
-            foreach ($chunk as $row) {
-                ksort($row);
-                $rowPlaceholders = [];
-                foreach ($row as $value) {
-                    if ($value === null) {
-                        $rowPlaceholders[] = 'NULL';
-                    } else {
-                        $values[]          = $value;
-                        $rowPlaceholders[] = '%s';
-                    }
-                }
-                $placeholders[] = '(' . implode(', ', $rowPlaceholders) . ')';
-            }
-
-            $sql .= implode(",\n", $placeholders);
-
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
-            $result = $wpdb->query($wpdb->prepare($sql, $values));
-
+        foreach (array_chunk($preparedRows, $chunkSize, true) as $chunk) {
+            $result = $this->insertBlock($tableName, $chunk);
             if ($result !== false) {
                 $inserted += $result;
+                continue;
+            }
+
+            // One bad row fails the whole block: retry row by row so only that row is lost
+            foreach ($chunk as $index => $row) {
+                $result = count($chunk) === 1 ? false : $this->insertBlock($tableName, [$index => $row]);
+                if ($result === false) {
+                    $this->failedRows[] = ['index' => $index, 'error' => (string) $wpdb->last_error];
+                } else {
+                    $inserted += $result;
+                }
             }
         }
 
+        $wpdb->suppress_errors($suppressed);
+
         return $inserted;
+    }
+
+    /**
+     * Rows the last batchInsert() could not store.
+     *
+     * @return array [['index' => int, 'error' => string], ...]
+     */
+    public function getFailedRows()
+    {
+        return $this->failedRows;
+    }
+
+    /**
+     * One multi-row INSERT for $rows (prepared column => value arrays).
+     *
+     * @return int|false Rows inserted, or false when MySQL rejected the statement
+     */
+    private function insertBlock($tableName, array $rows)
+    {
+        global $wpdb;
+
+        $columns = array_keys(reset($rows));
+        sort($columns);
+        $columnList = '`' . implode('`, `', $columns) . '`';
+
+        $placeholders = [];
+        $values       = [];
+
+        foreach ($rows as $row) {
+            ksort($row);
+            $rowPlaceholders = [];
+            foreach ($row as $value) {
+                if ($value === null) {
+                    $rowPlaceholders[] = 'NULL';
+                } else {
+                    $values[]          = $value;
+                    $rowPlaceholders[] = '%s';
+                }
+            }
+            $placeholders[] = '(' . implode(', ', $rowPlaceholders) . ')';
+        }
+
+        $sql = "INSERT INTO `{$tableName}` ({$columnList}) VALUES\n" . implode(",\n", $placeholders);
+
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
+        return $wpdb->query($wpdb->prepare($sql, $values));
+    }
+
+    /**
+     * Excel's plain "CSV (Comma delimited)" writes Windows-1252, so a mostly-UTF-8 file can
+     * carry a stray byte (0xA3 "£", 0xE9 "é"). MySQL rejects the whole INSERT for one such
+     * byte, so convert only the bytes that are not valid UTF-8 and leave the rest as is.
+     *
+     * @param mixed $value
+     * @return mixed
+     */
+    public static function repairUtf8($value)
+    {
+        if (!is_string($value) || $value === '' || preg_match('//u', $value)) {
+            return $value;
+        }
+
+        // Valid UTF-8 sequences pass through; any other single byte is read as Windows-1252
+        return preg_replace_callback(
+            '/[\x00-\x7F]|[\xC2-\xDF][\x80-\xBF]|\xE0[\xA0-\xBF][\x80-\xBF]|[\xE1-\xEC\xEE\xEF][\x80-\xBF]{2}|\xED[\x80-\x9F][\x80-\xBF]|\xF0[\x90-\xBF][\x80-\xBF]{2}|[\xF1-\xF3][\x80-\xBF]{3}|\xF4[\x80-\x8F][\x80-\xBF]{2}|(.)/s',
+            function ($match) {
+                return isset($match[1]) ? self::windows1252ToUtf8(ord($match[1])) : $match[0];
+            },
+            $value
+        );
+    }
+
+    private static function windows1252ToUtf8($byte)
+    {
+        // 0x80-0x9F differ from Latin-1; the five bytes Windows-1252 leaves undefined become U+FFFD
+        static $high = [
+            0x80 => 0x20AC, 0x82 => 0x201A, 0x83 => 0x0192, 0x84 => 0x201E, 0x85 => 0x2026, 0x86 => 0x2020,
+            0x87 => 0x2021, 0x88 => 0x02C6, 0x89 => 0x2030, 0x8A => 0x0160, 0x8B => 0x2039, 0x8C => 0x0152,
+            0x8E => 0x017D, 0x91 => 0x2018, 0x92 => 0x2019, 0x93 => 0x201C, 0x94 => 0x201D, 0x95 => 0x2022,
+            0x96 => 0x2013, 0x97 => 0x2014, 0x98 => 0x02DC, 0x99 => 0x2122, 0x9A => 0x0161, 0x9B => 0x203A,
+            0x9C => 0x0153, 0x9E => 0x017E, 0x9F => 0x0178,
+        ];
+
+        $code = $byte >= 0xA0 ? $byte : ($high[$byte] ?? 0xFFFD);
+
+        if ($code < 0x800) {
+            return chr(0xC0 | ($code >> 6)) . chr(0x80 | ($code & 0x3F));
+        }
+
+        return chr(0xE0 | ($code >> 12)) . chr(0x80 | (($code >> 6) & 0x3F)) . chr(0x80 | ($code & 0x3F));
     }
 
     public function duplicate($rowId)

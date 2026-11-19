@@ -22,6 +22,10 @@ class ToolsController extends Controller
     public function saveDefaultSettings(Request $request)
     {
         $settings = ninjaTableNormalize(wp_unslash(Arr::get($request->all(), 'default_settings')));
+        // The shortcode opt-in is per table (needs unfiltered_html), never a global default
+        if (is_array($settings)) {
+            unset($settings['execute_shortcodes']);
+        }
         update_option('_ninja_table_default_appearance_settings', $settings);
 
         return $this->sendSuccess([

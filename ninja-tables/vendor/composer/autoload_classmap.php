@@ -124,6 +124,7 @@ return array(
     'NinjaTables\\App\\Services\\TranslationService' => $baseDir . '/app/Services/TranslationService.php',
     'NinjaTables\\App\\Services\\Vite' => $baseDir . '/app/Services/Vite.php',
     'NinjaTables\\App\\Support\\Csv' => $baseDir . '/app/Support/Csv.php',
+    'NinjaTables\\App\\Support\\DateSort' => $baseDir . '/app/Support/DateSort.php',
     'NinjaTables\\App\\Support\\Sanitize' => $baseDir . '/app/Support/Sanitize.php',
     'NinjaTables\\App\\Support\\Str' => $baseDir . '/app/Support/Str.php',
     'NinjaTables\\App\\Support\\TableCache' => $baseDir . '/app/Support/TableCache.php',

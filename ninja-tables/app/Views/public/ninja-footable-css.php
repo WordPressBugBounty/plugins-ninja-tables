@@ -52,7 +52,8 @@
     background-color: <?php echo esc_attr($colors['table_header_color_primary']); ?> !important;
     color: <?php echo esc_attr($colors['table_color_header_secondary']); ?> !important;
     }
-    <?php if($colors['table_color_header_border']) : ?>
+    <?php // Header border colour follows the "Bordered table" toggle, like the body border below. ?>
+    <?php if(!empty($hasBorderedClass) && $colors['table_color_header_border']) : ?>
         <?php echo esc_attr($css_prefix); ?>:not(.hide_all_borders) tr.footable-header th,
         <?php echo esc_attr($css_prefix); ?>:not(.hide_all_borders) tbody tr th {
         border-color: <?php echo esc_attr($colors['table_color_header_border']); ?> !important;
@@ -252,7 +253,7 @@
         color: <?php echo esc_attr($colors['table_color_header_secondary']); ?> !important;
         }
     <?php endif; ?>
-    <?php if(isset($colors['table_color_header_border']) && $colors['table_color_header_border']) : ?>
+    <?php if(!empty($hasBorderedClass) && isset($colors['table_color_header_border']) && $colors['table_color_header_border']) : ?>
         <?php echo esc_attr($stackPrefix); ?>:not(.hide_all_borders) tr.footable-header th {
         border-color: <?php echo esc_attr($colors['table_color_header_border']); ?> !important;
         }

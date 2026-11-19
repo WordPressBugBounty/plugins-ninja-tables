@@ -3,6 +3,7 @@
 namespace NinjaTables\App\Models;
 
 use NinjaTables\App\Models\Casts\CustomDateCast;
+use NinjaTables\App\Support\DateSort;
 use NinjaTables\App\Support\Sanitize;
 use NinjaTables\Framework\Support\Sanitizer;
 
@@ -72,10 +73,6 @@ class NinjaTableItem extends Model
                     'position'   => property_exists($item, 'position') ? $item->position : null,
                     'values'     => json_decode($item->value, true)
                 );
-            }
-
-            if ( ! $hasSettings) {
-                // We have to migrate the data now
             }
         } elseif (trim((string)$search) !== '') {
             list($response, $total) = $this->searchProviderRows($tableId, $perPage, $skip, $search, $dataSourceType);
@@ -216,8 +213,9 @@ class NinjaTableItem extends Model
         if ($type === 'number') {
             $query->orderByRaw("CAST($value AS DECIMAL(30,10)) $direction", [$path]);
         } elseif ($type === 'date') {
-            $format = self::mysqlDateFormat(isset($column['dateFormat']) ? $column['dateFormat'] : '');
-            $query->orderByRaw("STR_TO_DATE($value, ?) $direction", [$path, $format]);
+            if (!DateSort::orderBy($query, $value, [$path], $direction, $column)) {
+                $query->orderByRaw("$value $direction", [$path]);
+            }
         } else {
             // Number-like text by value first (999 before 1000), then text
             // order (the table collation ignores case)
@@ -227,19 +225,6 @@ class NinjaTableItem extends Model
         $query->orderBy('id', $direction);
 
         return true;
-    }
-
-    // Same mapping as DefaultProvider::convertDateFormatToMysql() (protected there)
-    protected static function mysqlDateFormat($dateFormat)
-    {
-        if (!$dateFormat) {
-            return '%Y-%m-%d';
-        }
-
-        return strtr($dateFormat, [
-            'YYYY' => '%Y', 'YY' => '%y', 'MM' => '%m', 'M' => '%c', 'DD' => '%d', 'D' => '%e',
-            'HH' => '%H', 'hh' => '%h', 'mm' => '%i', 'ss' => '%s',
-        ]);
     }
 
     /*

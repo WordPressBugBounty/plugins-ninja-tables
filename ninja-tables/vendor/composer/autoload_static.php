@@ -11,11 +11,11 @@ class ComposerStaticInite2cc3f91f264b6c9d64346c5247abaa6
     );
 
     public static $prefixLengthsPsr4 = array (
-        'W' =>
+        'W' => 
         array (
             'WPFluent\\' => 9,
         ),
-        'N' =>
+        'N' => 
         array (
             'NinjaTables\\Framework\\' => 22,
             'NinjaTables\\Dev\\' => 16,
@@ -24,19 +24,19 @@ class ComposerStaticInite2cc3f91f264b6c9d64346c5247abaa6
     );
 
     public static $prefixDirsPsr4 = array (
-        'WPFluent\\' =>
+        'WPFluent\\' => 
         array (
             0 => __DIR__ . '/..' . '/wpfluent/framework/src/WPFluent',
         ),
-        'NinjaTables\\Framework\\' =>
+        'NinjaTables\\Framework\\' => 
         array (
             0 => __DIR__ . '/..' . '/wpfluent/framework/src/WPFluent',
         ),
-        'NinjaTables\\Dev\\' =>
+        'NinjaTables\\Dev\\' => 
         array (
             0 => __DIR__ . '/../..' . '/dev',
         ),
-        'NinjaTables\\App\\' =>
+        'NinjaTables\\App\\' => 
         array (
             0 => __DIR__ . '/../..' . '/app',
         ),
@@ -161,6 +161,7 @@ class ComposerStaticInite2cc3f91f264b6c9d64346c5247abaa6
         'NinjaTables\\App\\Services\\TranslationService' => __DIR__ . '/../..' . '/app/Services/TranslationService.php',
         'NinjaTables\\App\\Services\\Vite' => __DIR__ . '/../..' . '/app/Services/Vite.php',
         'NinjaTables\\App\\Support\\Csv' => __DIR__ . '/../..' . '/app/Support/Csv.php',
+        'NinjaTables\\App\\Support\\DateSort' => __DIR__ . '/../..' . '/app/Support/DateSort.php',
         'NinjaTables\\App\\Support\\Sanitize' => __DIR__ . '/../..' . '/app/Support/Sanitize.php',
         'NinjaTables\\App\\Support\\Str' => __DIR__ . '/../..' . '/app/Support/Str.php',
         'NinjaTables\\App\\Support\\TableCache' => __DIR__ . '/../..' . '/app/Support/TableCache.php',

@@ -7,6 +7,7 @@ if (!defined('ABSPATH')) {
 }
 
 use NinjaTables\App\Helper\TableCssHelper;
+use NinjaTables\App\Support\TableSettings;
 use NinjaTables\Framework\Support\Arr;
 
 /**
@@ -86,6 +87,11 @@ class CssGenerator
 
         $hasStackable = Arr::get($settings, 'stackable') == 'yes';
 
+        // DataTables' "Bordered table" class (legacy celled/table-bordered map to it); the custom
+        // header border colour only applies with it.
+        $dtClasses        = TableSettings::normalizeDataTablesCssClasses(array_merge((array) $settings, ['library' => 'datatables']));
+        $hasBorderedClass = in_array('dt_bordered', (array) Arr::get($dtClasses, 'css_classes', []), true);
+
         if (!Arr::get($fonts, 'table_font_size') && !Arr::get($fonts, 'table_font_family') && !$colors && !$custom_css && !count($cellStyles)) {
             return null;
         }
@@ -108,12 +114,19 @@ class CssGenerator
             return;
         }
 
-        add_action($hook, function () use ($css, $styleId) {
+        $print = function () use ($css, $styleId) {
             ?>
             <style type="text/css" id="<?php echo esc_attr($styleId); ?>">
                 <?php echo ninjaTablesEscCss($css); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
             </style>
             <?php
-        }, $priority);
+        };
+
+        if (InlineScript::printNow()) {
+            $print();
+            return;
+        }
+
+        add_action($hook, $print, $priority);
     }
 }

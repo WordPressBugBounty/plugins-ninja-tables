@@ -32,6 +32,10 @@ class SettingsController extends Controller
 
         $table->custom_css = get_post_meta($tableID, '_ninja_tables_custom_css', true);
 
+        // Table Configuration's "Run shortcodes in cells" switch
+        $table->data_provider       = $provider;
+        $table->can_unfiltered_html = ninjaTablesCanUnfilteredHTML();
+
         NinjaTableItemsMigrator::checkDBMigrations();
 
         $this->json(array(

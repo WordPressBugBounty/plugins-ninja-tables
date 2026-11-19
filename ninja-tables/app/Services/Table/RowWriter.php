@@ -19,6 +19,13 @@ class RowWriter
     protected $tableId;
     protected $engine;
 
+    /**
+     * Keys (in the $rows given to insert()) of the rows the last insert() could not store.
+     *
+     * @var array
+     */
+    protected $failedKeys = [];
+
     public function __construct($tableId, $engine = null)
     {
         $this->tableId = (int) $tableId;
@@ -55,7 +62,11 @@ class RowWriter
      */
     public function insert(array $rows, array $options = [])
     {
-        $rows = array_values(array_filter($rows, 'is_array'));
+        $this->failedKeys = [];
+
+        $rows = array_filter($rows, 'is_array');
+        $keys = array_keys($rows);
+        $rows = array_values($rows);
 
         if (!$rows) {
             return 0;
@@ -63,9 +74,29 @@ class RowWriter
 
         $rows = array_map('ninja_tables_sanitize_array', $rows);
 
-        return $this->engine === Engine::DATATABLES
-            ? $this->insertDynamic($rows)
-            : $this->insertItems($rows, $options);
+        if ($this->engine !== Engine::DATATABLES) {
+            return $this->insertItems($rows, $options);
+        }
+
+        $dynamicRow = $this->prepareDynamic();
+        $inserted   = (int) $dynamicRow->batchInsert($rows, $dynamicRow->getNextPosition());
+
+        foreach ($dynamicRow->getFailedRows() as $failed) {
+            $this->failedKeys[] = $keys[$failed['index']];
+        }
+
+        return $inserted;
+    }
+
+    /**
+     * Keys of the rows the last insert() could not store (DataTables tables), so a caller
+     * can report them instead of a silent success.
+     *
+     * @return array
+     */
+    public function failedKeys()
+    {
+        return $this->failedKeys;
     }
 
     /**
@@ -133,7 +164,8 @@ class RowWriter
         return $count;
     }
 
-    protected function insertDynamic(array $rows)
+    /** The table's dynamic DB table, created and synced to the current columns. */
+    protected function prepareDynamic()
     {
         $manager = new DynamicTableManager($this->tableId);
 
@@ -144,8 +176,6 @@ class RowWriter
         $columns = get_post_meta($this->tableId, '_ninja_table_columns', true) ?: [];
         $manager->syncColumns($columns);
 
-        $dynamicRow = new DynamicRow($this->tableId);
-
-        return (int) $dynamicRow->batchInsert($rows, $dynamicRow->getNextPosition());
+        return new DynamicRow($this->tableId);
     }
 }
