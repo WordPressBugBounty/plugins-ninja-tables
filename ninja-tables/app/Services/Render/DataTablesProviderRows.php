@@ -66,7 +66,9 @@ class DataTablesProviderRows
         $columnTypeMap     = DataTablesRowFormatter::buildColumnTypeMap($columns);
         $executeShortcodes = ninja_tables_provider_executes_shortcodes($tableId);
         $trustedColumns    = static::trustedHtmlColumns($tableId, $columns);
-        $isFluentCart      = ninja_table_get_data_provider($tableId) === 'wp_fct';
+        // FluentCart and WooCommerce rows have no stored id; bulk compare / bulk add to
+        // cart key rows by index, as on FooTable.
+        $indexRowIds       = in_array(ninja_table_get_data_provider($tableId), ['wp_fct', 'wp_woo'], true);
 
         $result  = [];
         $counter = 0;
@@ -92,8 +94,7 @@ class DataTablesProviderRows
 
             $row['DT_RowClass'] = 'ninja_table_row_' . $counter . ($rowId ? ' nt_row_id_' . intval($rowId) : '');
 
-            // FluentCart rows have no stored id; bulk compare keys rows by index, as on FooTable.
-            if (!$rowId && $isFluentCart) {
+            if (!$rowId && $indexRowIds) {
                 $row['DT_RowClass'] .= ' nt_row_id_' . $counter;
             }
 
@@ -122,6 +123,12 @@ class DataTablesProviderRows
         } elseif ($provider === 'wp_fct') {
             foreach ($columns as $column) {
                 if (static::isFluentCartHtmlColumn($column)) {
+                    $keys[] = (string) Arr::get($column, 'key');
+                }
+            }
+        } elseif ($provider === 'wp_woo') {
+            foreach ($columns as $column) {
+                if (static::isWooHtmlColumn($column)) {
                     $keys[] = (string) Arr::get($column, 'key');
                 }
             }
@@ -159,6 +166,26 @@ class DataTablesProviderRows
     }
 
     /**
+     * WooCommerce cells Pro builds itself: quantity input, add to cart button / variation
+     * form, WooCommerce price HTML and the rating stars; wp_kses_post would strip their
+     * form controls. "Shortcode / HTML" columns are admin-authored templates, trusted as on
+     * WP Posts. SKU, stock, post data, meta and ACF values stay escaped.
+     */
+    protected static function isWooHtmlColumn($column)
+    {
+        $source = Arr::get($column, 'source_type');
+
+        if ($source === 'product_data') {
+            return in_array(Arr::get($column, 'wp_post_custom_data_key'), [
+                'buy_now_button', 'product_quantity', 'product_price', 'product_average_rating',
+            ], true);
+        }
+
+        return $source === 'shortcode'
+            || ($source === 'custom' && Arr::get($column, 'wp_post_custom_data_source_type') === 'shortcode');
+    }
+
+    /**
      * In-memory twin of DynamicRow's locked-filter operators (exact, like, starts_with,
      * gt, lt). Fails closed: a row without the filtered column is dropped.
      */
@@ -190,8 +217,9 @@ class DataTablesProviderRows
         }
 
         // MySQL's default collation compares case-insensitively; match it.
-        $cell   = mb_strtolower(trim(wp_strip_all_tags((string) $row[$column])));
-        $needle = mb_strtolower(trim((string) Arr::get($filter, 'value', '')));
+        // Compare text, not markup: providers escape cells, and editors may save "&" as "&amp;".
+        $cell   = mb_strtolower(trim(html_entity_decode(wp_strip_all_tags((string) $row[$column]), ENT_QUOTES, 'UTF-8')));
+        $needle = mb_strtolower(trim(html_entity_decode((string) Arr::get($filter, 'value', ''), ENT_QUOTES, 'UTF-8')));
 
         switch (Arr::get($filter, 'operator', 'exact')) {
             case 'exact':

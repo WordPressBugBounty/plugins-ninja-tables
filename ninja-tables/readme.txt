@@ -4,7 +4,7 @@ Tags: table, table builder, pricing table, comparison table, product table
 Requires at least: 6.0
 Requires PHP: 7.4
 Tested up to: 7.1
-Stable tag: 5.5.2
+Stable tag: 5.5.3
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -462,6 +462,16 @@ Ninja Tables [customer support](https://wpmanageninja.com/account/support-ticket
 == Changelog ==
 We released several updates for Ninja Tables in the years of development. These include improvements to the existing features and some wonderful additions to help you design tables more effectively.
 
+= 5.5.3 (Date: November 20, 2026) =
+* Security: Fixed a crafted block or admin link that could delete a table; admin REST URLs are now validated and never sent as JSONP.
+* Security: The Gutenberg block lists only published tables, and only to users who can write posts.
+* Improved: The table block shows a note instead of an empty preview for users who can't manage tables.
+* Added: Ninja Forms, Gravity Forms and WPForms entries as table sources (Pro).
+* Added: DataTables engine for WooCommerce product tables.
+* Fixed: CSV and Excel exports of source tables now contain plain text.
+* Fixed: Special characters in DataTables text cells and locked filters.
+* Fixed: FluentCart table cart bar now updates when the cart changes in the FluentCart drawer.
+
 = 5.5.2 (Date: November 19, 2026) =
 * Security: Fixed a stored XSS in DataTables tables fed by Fluent Forms entries.
 * Security: Fixed FooTable initialization and own-data-only filter option issues.
@@ -645,6 +655,9 @@ We released several updates for Ninja Tables in the years of development. These 
 
 
 == Upgrade Notice ==
+
+= 5.5.3 =
+Security fix. If you use Ninja Tables Pro, update it to 5.5.3 as well.
 
 = 5.5.1 =
 Security hardening for imports and exports. If you exported a table that uses an external database before this version, change that database's password.

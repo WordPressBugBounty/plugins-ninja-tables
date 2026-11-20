@@ -11,11 +11,11 @@ class ComposerStaticInite2cc3f91f264b6c9d64346c5247abaa6
     );
 
     public static $prefixLengthsPsr4 = array (
-        'W' => 
+        'W' =>
         array (
             'WPFluent\\' => 9,
         ),
-        'N' => 
+        'N' =>
         array (
             'NinjaTables\\Framework\\' => 22,
             'NinjaTables\\Dev\\' => 16,
@@ -24,19 +24,19 @@ class ComposerStaticInite2cc3f91f264b6c9d64346c5247abaa6
     );
 
     public static $prefixDirsPsr4 = array (
-        'WPFluent\\' => 
+        'WPFluent\\' =>
         array (
             0 => __DIR__ . '/..' . '/wpfluent/framework/src/WPFluent',
         ),
-        'NinjaTables\\Framework\\' => 
+        'NinjaTables\\Framework\\' =>
         array (
             0 => __DIR__ . '/..' . '/wpfluent/framework/src/WPFluent',
         ),
-        'NinjaTables\\Dev\\' => 
+        'NinjaTables\\Dev\\' =>
         array (
             0 => __DIR__ . '/../..' . '/dev',
         ),
-        'NinjaTables\\App\\' => 
+        'NinjaTables\\App\\' =>
         array (
             0 => __DIR__ . '/../..' . '/app',
         ),

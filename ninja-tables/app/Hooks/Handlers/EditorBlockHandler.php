@@ -75,7 +75,7 @@ class EditorBlockHandler
             'orderby'        => 'date',
             'order'          => 'DESC',
             'post_type'      => $this->cpt_name,
-            'post_status'    => 'any'
+            'post_status'    => 'publish' // same rule as the Gutenberg block list
         );
 
         $tables    = get_posts($args);

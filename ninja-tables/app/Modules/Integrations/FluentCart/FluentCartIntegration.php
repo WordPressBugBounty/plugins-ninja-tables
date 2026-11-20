@@ -35,6 +35,8 @@ class FluentCartIntegration extends BaseIntegration
 
         $app->addAction('wp_ajax_ninja_table_wp_fct_add_to_cart', [FluentCartHandler::class, 'addToCart']);
         $app->addAction('wp_ajax_nopriv_ninja_table_wp_fct_add_to_cart', [FluentCartHandler::class, 'addToCart']);
+        $app->addAction('wp_ajax_ninja_table_wp_fct_cart_fragments', [FluentCartHandler::class, 'cartFragments']);
+        $app->addAction('wp_ajax_nopriv_ninja_table_wp_fct_cart_fragments', [FluentCartHandler::class, 'cartFragments']);
 
         $app->addFilter('ninja_tables_get_table_data_wp_fct', [FluentCartHandler::class, 'getTableData'], 10, 4);
         $app->addFilter('ninja_tables_get_table_wp_fct', [FluentCartHandler::class, 'getTableSettings'], 10, 2);

@@ -29,12 +29,16 @@ class I18nStrings
             "%d rows" => __("%d rows", "ninja-tables"),
             /* translators: %d: number of rows matching the filter */
             "%d rows match" => __("%d rows match", "ninja-tables"),
+            /* translators: %s: form plugin name, e.g. Gravity Forms */
+            "%s entries" => __("%s entries", "ninja-tables"),
             /* translators: %s: element name */
             "%s is a Pro element. Ninja Tables Pro unlocks it." => __("%s is a Pro element. Ninja Tables Pro unlocks it.", "ninja-tables"),
             /* translators: %s: layout name */
             "%s layout" => __("%s layout", "ninja-tables"),
             /* translators: %s: template category, e.g. Pricing (a default table name) */
             "%s table" => __("%s table", "ninja-tables"),
+            /* translators: %s: form plugin name, e.g. Gravity Forms */
+            "%s tables are a Pro feature." => __("%s tables are a Pro feature.", "ninja-tables"),
             "\$table and tableConfig are ready to use" => __("\$table and tableConfig are ready to use", "ninja-tables"),
             "1 cell picked, click another" => __("1 cell picked, click another", "ninja-tables"),
             "1 column" => __("1 column", "ninja-tables"),
@@ -498,6 +502,7 @@ class I18nStrings
             "e.g. Choose a plan" => __("e.g. Choose a plan", "ninja-tables"),
             "e.g. dddd, MMMM Do YYYY" => __("e.g. dddd, MMMM Do YYYY", "ninja-tables"),
             "e.g. Email" => __("e.g. Email", "ninja-tables"),
+            "e.g. Event registrations" => __("e.g. Event registrations", "ninja-tables"),
             "e.g. FluentCart products" => __("e.g. FluentCart products", "ninja-tables"),
             "e.g. Google Sheet table" => __("e.g. Google Sheet table", "ninja-tables"),
             "e.g. Latest posts" => __("e.g. Latest posts", "ninja-tables"),
@@ -518,6 +523,7 @@ class I18nStrings
             "Each ticked column is shown in the table. You can rename and reorder them in the Columns tab." => __("Each ticked column is shown in the table. You can rename and reorder them in the Columns tab.", "ninja-tables"),
             "Each ticked field becomes a column, in this order. You can rename and reorder them in the Columns tab." => __("Each ticked field becomes a column, in this order. You can rename and reorder them in the Columns tab.", "ninja-tables"),
             "Each visitor sees only posts they wrote. Handy for member areas." => __("Each visitor sees only posts they wrote. Handy for member areas.", "ninja-tables"),
+            "Each visitor sees only what they submitted. Logged-out visitors see an empty table." => __("Each visitor sees only what they submitted. Logged-out visitors see an empty table.", "ninja-tables"),
             "Edit" => __("Edit", "ninja-tables"),
             "Edit column" => __("Edit column", "ninja-tables"),
             "Edit Custom Filter" => __("Edit Custom Filter", "ninja-tables"),
@@ -698,6 +704,7 @@ class I18nStrings
             "Google Sheets: File → Share → Publish to web → CSV format." => __("Google Sheets: File → Share → Publish to web → CSV format.", "ninja-tables"),
             "Got it" => __("Got it", "ninja-tables"),
             "Grace period" => __("Grace period", "ninja-tables"),
+            "Gravity Forms Entries" => __("Gravity Forms Entries", "ninja-tables"),
             "Greater than" => __("Greater than", "ninja-tables"),
             "Greater than or equal to" => __("Greater than or equal to", "ninja-tables"),
             "Guides, answers and a way to reach us when a table is not doing what you expect." => __("Guides, answers and a way to reach us when a table is not doing what you expect.", "ninja-tables"),
@@ -892,6 +899,9 @@ class I18nStrings
             "List options" => __("List options", "ninja-tables"),
             "List type" => __("List type", "ninja-tables"),
             "Live form entries." => __("Live form entries.", "ninja-tables"),
+            "Live Gravity Forms submissions." => __("Live Gravity Forms submissions.", "ninja-tables"),
+            "Live Ninja Forms submissions." => __("Live Ninja Forms submissions.", "ninja-tables"),
+            "Live WPForms submissions." => __("Live WPForms submissions.", "ninja-tables"),
             "Loading" => __("Loading", "ninja-tables"),
             "Loading table" => __("Loading table", "ninja-tables"),
             "Loading templates…" => __("Loading templates…", "ninja-tables"),
@@ -960,6 +970,7 @@ class I18nStrings
             "Next row" => __("Next row", "ninja-tables"),
             "Ninja Charts" => __("Ninja Charts", "ninja-tables"),
             "Ninja Charts reads your Ninja Tables data, so charts stay in sync with your tables. No copying numbers." => __("Ninja Charts reads your Ninja Tables data, so charts stay in sync with your tables. No copying numbers.", "ninja-tables"),
+            "Ninja Forms Entries" => __("Ninja Forms Entries", "ninja-tables"),
             "Ninja table" => __("Ninja table", "ninja-tables"),
             "Ninja Tables" => __("Ninja Tables", "ninja-tables"),
             "Ninja Tables and Fluent Forms: a walkthrough" => __("Ninja Tables and Fluent Forms: a walkthrough", "ninja-tables"),
@@ -1039,6 +1050,7 @@ class I18nStrings
             "Only show posts that match every rule." => __("Only show posts that match every rule.", "ninja-tables"),
             "Only tables that store their own rows can be edited from the front end. This one reads its rows from somewhere else, so there is nothing here to save back to." => __("Only tables that store their own rows can be edited from the front end. This one reads its rows from somewhere else, so there is nothing here to save back to.", "ninja-tables"),
             "Only the first sheet is imported. Formulas import their last calculated values." => __("Only the first sheet is imported. Formulas import their last calculated values.", "ninja-tables"),
+            "Only the logged-in user's entries" => __("Only the logged-in user's entries", "ninja-tables"),
             "Only the logged-in user's posts" => __("Only the logged-in user's posts", "ninja-tables"),
             "Only users who can publish unfiltered HTML can edit custom JavaScript. Any script already on this table stays as it is." => __("Only users who can publish unfiltered HTML can edit custom JavaScript. Any script already on this table stays as it is.", "ninja-tables"),
             "Only users who can publish unfiltered HTML can turn this on." => __("Only users who can publish unfiltered HTML can turn this on.", "ninja-tables"),
@@ -1122,6 +1134,8 @@ class I18nStrings
             "Please specify order by type. The script will order with your selected type" => __("Please specify order by type. The script will order with your selected type", "ninja-tables"),
             "Please update Ninja Tables Pro" => __("Please update Ninja Tables Pro", "ninja-tables"),
             "Please update Ninja Tables Pro Plugin to latest version. Required Ninja Tables Version: 3.3 or later" => __("Please update Ninja Tables Pro Plugin to latest version. Required Ninja Tables Version: 3.3 or later", "ninja-tables"),
+            /* translators: %s: form plugin name, e.g. Gravity Forms */
+            "Please update Ninja Tables Pro to the latest version to use %s tables." => __("Please update Ninja Tables Pro to the latest version to use %s tables.", "ninja-tables"),
             "Please update Ninja Tables Pro to the latest version to use this data source." => __("Please update Ninja Tables Pro to the latest version to use this data source.", "ninja-tables"),
             "Please update Ninja Tables Pro to the latest version to use WP Posts tables." => __("Please update Ninja Tables Pro to the latest version to use WP Posts tables.", "ninja-tables"),
             "Please update to latest version of Ninja Tables Pro to use WooCommerce integration" => __("Please update to latest version of Ninja Tables Pro to use WooCommerce integration", "ninja-tables"),
@@ -1278,6 +1292,8 @@ class I18nStrings
             "Rows are read from a published Google Sheet and refreshed on a schedule you set." => __("Rows are read from a published Google Sheet and refreshed on a schedule you set.", "ninja-tables"),
             "Rows are the result of a read-only query you write against the database." => __("Rows are the result of a read-only query you write against the database.", "ninja-tables"),
             "Rows come from" => __("Rows come from", "ninja-tables"),
+            /* translators: %s: form plugin name, e.g. Gravity Forms */
+            "Rows come from a %s form. Pick the form and the fields to show." => __("Rows come from a %s form. Pick the form and the fields to show.", "ninja-tables"),
             "Rows come from a Fluent Forms form. Pick the form and the fields to show." => __("Rows come from a Fluent Forms form. Pick the form and the fields to show.", "ninja-tables"),
             "Rows from a CSV or JSON URL." => __("Rows from a CSV or JSON URL.", "ninja-tables"),
             "Rows from a database query." => __("Rows from a database query.", "ninja-tables"),
@@ -1411,6 +1427,8 @@ class I18nStrings
             "Show Table Title" => __("Show Table Title", "ninja-tables"),
             "Show the number next to the stars." => __("Show the number next to the stars.", "ninja-tables"),
             "Show time" => __("Show time", "ninja-tables"),
+            /* translators: %s: form plugin name, e.g. Gravity Forms */
+            "Show your %s submissions in a searchable, sortable table that updates itself." => __("Show your %s submissions in a searchable, sortable table that updates itself.", "ninja-tables"),
             "Show your love" => __("Show your love", "ninja-tables"),
             "Show your products in a searchable, sortable table with add to cart." => __("Show your products in a searchable, sortable table with add to cart.", "ninja-tables"),
             "Showing" => __("Showing", "ninja-tables"),
@@ -1697,6 +1715,8 @@ class I18nStrings
             "View" => __("View", "ninja-tables"),
             "View documentation" => __("View documentation", "ninja-tables"),
             "View Documentation." => __("View Documentation.", "ninja-tables"),
+            /* translators: %s: form plugin name, e.g. Gravity Forms */
+            "View entries in %s" => __("View entries in %s", "ninja-tables"),
             "View trash" => __("View trash", "ninja-tables"),
             "Visitors can click a cell in this column to copy its value." => __("Visitors can click a cell in this column to copy its value.", "ninja-tables"),
             "Visitors can click the heading to sort by this column." => __("Visitors can click the heading to sort by this column.", "ninja-tables"),
@@ -1746,6 +1766,7 @@ class I18nStrings
             "WP Editor is only available on WordPress version 4.8 or later. Please Upgrade Your WordPress Core" => __("WP Editor is only available on WordPress version 4.8 or later. Please Upgrade Your WordPress Core", "ninja-tables"),
             "WP Posts tables are a Pro feature." => __("WP Posts tables are a Pro feature.", "ninja-tables"),
             "WP Posts/CPTs" => __("WP Posts/CPTs", "ninja-tables"),
+            "WPForms Entries" => __("WPForms Entries", "ninja-tables"),
             "Write a SQL query." => __("Write a SQL query.", "ninja-tables"),
             "X offset" => __("X offset", "ninja-tables"),
             "Y offset" => __("Y offset", "ninja-tables"),

@@ -73,6 +73,7 @@ class TableExporter
             }
 
             $exportData = array();
+            $plainText  = $dataProvider !== 'default';
 
             foreach ($data as $item) {
                 $temp = array();
@@ -80,6 +81,9 @@ class TableExporter
                     $value = Arr::get($item, $accessor);
                     if (is_array($value)) {
                         $value = implode(', ', $value);
+                    }
+                    if ($plainText) {
+                        $value = static::plainCellText($value);
                     }
                     $temp[] = ninjaTablesSanitizeForCSV($value);
                 }
@@ -136,7 +140,8 @@ class TableExporter
         $tableSettings   = ninja_table_get_table_settings($tableId, 'admin');
         $isDataTables    = Engine::isDataTables($tableId);
         $streamThreshold = (int) apply_filters('ninja_tables_export_stream_threshold', 20000, $tableId);
-        $shouldStream    = ninja_table_get_data_provider($tableId) === 'default'
+        $plainText       = ninja_table_get_data_provider($tableId) !== 'default';
+        $shouldStream    = !$plainText
                            && (new RowReader($tableId))->count() >= $streamThreshold;
 
         $header = array();
@@ -150,7 +155,8 @@ class TableExporter
             foreach (self::exportRows($tableId, $tableColumns, $tableSettings, $isDataTables, $shouldStream) as $row) {
                 $cells = array();
                 foreach ($header as $accessor => $name) {
-                    $cells[] = Arr::get($row, $accessor);
+                    $value   = Arr::get($row, $accessor);
+                    $cells[] = $plainText ? static::plainCellText($value) : $value;
                 }
                 $writer->addRow($cells);
             }
@@ -160,6 +166,51 @@ class TableExporter
             $writer->abort();
             throw $e;
         }
+    }
+
+    /**
+     * Plain text for a cell of a non-default source (form entries, posts, SQL...).
+     * Those rows arrive as display HTML: line breaks become new lines, tags are
+     * removed, entities decoded. Images keep their URL, file links "name (url)".
+     *
+     * @param mixed $value
+     * @return mixed
+     */
+    public static function plainCellText($value)
+    {
+        if (!is_string($value) || (strpos($value, '<') === false && strpos($value, '&') === false)) {
+            return $value;
+        }
+
+        $value = preg_replace_callback('~<a\b[^>]*?\bhref\s*=\s*(["\'])(.*?)\1[^>]*>(.*?)</a>~is', function ($m) {
+            if (!self::isFileUrl(html_entity_decode($m[2], ENT_QUOTES | ENT_HTML5, 'UTF-8'))) {
+                return $m[3];
+            }
+            $name = trim(wp_strip_all_tags($m[3]));
+
+            return ($name === '' || $name === $m[2]) ? $m[2] : $name . ' (' . $m[2] . ')';
+        }, $value);
+
+        // After links, so a thumbnail inside a file link leaves just the file URL
+        $value = preg_replace_callback('~<img\b[^>]*?\bsrc\s*=\s*(["\'])(.*?)\1[^>]*>~is', function ($m) {
+            return ' ' . $m[2] . ' ';
+        }, $value);
+
+        $value = preg_replace('~<br\s*/?>\r?\n?|</(?:p|div|li|tr)>~i', "\n", $value);
+        $value = html_entity_decode(wp_strip_all_tags($value), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        return trim(preg_replace('~[ \t]+\n~', "\n", $value));
+    }
+
+    /**
+     * A link to a file (upload) rather than a page.
+     */
+    private static function isFileUrl($url)
+    {
+        $path = (string) wp_parse_url($url, PHP_URL_PATH);
+        $type = wp_check_filetype(basename($path));
+
+        return !empty($type['ext']) && !in_array($type['ext'], ['htm', 'html'], true);
     }
 
     /**

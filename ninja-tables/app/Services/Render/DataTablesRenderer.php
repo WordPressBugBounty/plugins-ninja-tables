@@ -8,6 +8,7 @@ if (!defined('ABSPATH')) {
 
 use NinjaTables\App\App;
 use NinjaTables\App\Helper\ColumnHelper;
+use NinjaTables\App\Helper\Helper;
 use NinjaTables\App\Helper\Pro;
 use NinjaTables\App\Modules\DataTables\Database\DynamicTableManager;
 use NinjaTables\App\Modules\DataTables\Models\DynamicRow;
@@ -92,9 +93,12 @@ class DataTablesRenderer extends AbstractTableRenderer
             $this->enqueueResponsiveAssets();
         }
 
-        // FluentCart's cart/bulk-compare script reads these, as on FooTable.
+        // FluentCart's and WooCommerce's cart/bulk-compare scripts read these, as on FooTable.
+        $isWoo = $fromProvider && Helper::isProviderActiveAndMatches($tableArray, 'wp_woo');
         if ($fromProvider && Arr::get($tableArray, 'provider') === 'wp_fct') {
             $configSettings['appearance_settings'] = Arr::get(get_post_meta($tableId, '_ninja_table_fct_appearance_settings', false), 0, []);
+        } elseif ($isWoo) {
+            $configSettings['appearance_settings'] = Arr::get(get_post_meta($tableId, '_ninja_table_woo_appearance_settings', false), 0, []);
         }
 
         RenderConfig::applyProConfig($configSettings, $settings);
@@ -104,6 +108,13 @@ class DataTablesRenderer extends AbstractTableRenderer
         }
 
         [$table_classes, $tableHasColor] = $this->classes($settings, $tableArray);
+
+        if ($isWoo) {
+            // Scopes the Woo cell styles, which live in the public stylesheet; that sheet is
+            // only pre-enqueued on posts whose content was scanned for the shortcode.
+            $table_classes .= ' ninja_dt_woo_table';
+            Vite::enqueueStyle('footable_styles', is_rtl() ? 'css/ninjatables-public-rtl.css' : 'css/ninjatables-public.css');
+        }
 
         $lengthChange = (bool)Arr::get($settings, 'show_pager', false);
         $perPage      = $pagingSettings ? intval($pagingSettings) : 20;
@@ -118,7 +129,8 @@ class DataTablesRenderer extends AbstractTableRenderer
             'lengthChange'      => $lengthChange,
             'lengthMenu'        => $pageSizes,
             'ordering'          => $globalSorting,
-            'sorting_type'      => $sortingType,
+            // Woo rows arrive in the source's "Initial order by" order; keep it on load, as FooTable does.
+            'sorting_type'      => $isWoo ? 'manual_sort' : $sortingType,
             'default_sorting'   => $defaultSorting,
             'sorting_column'    => Arr::get($settings, 'sorting_column', ''),
             'sorting_column_by' => strtolower(Arr::get($settings, 'sorting_column_by', 'asc')),
@@ -194,6 +206,12 @@ class DataTablesRenderer extends AbstractTableRenderer
         ];
 
         $table_vars = apply_filters('ninja_table_rendering_table_vars', $table_vars, $tableId, $tableArray);
+
+        // Pro's WooCommerce cart script reads these, as on FooTable.
+        if ($isWoo) {
+            $table_vars['wc_ajax_url'] = add_query_arg(['wc-ajax' => 'add_to_cart', 'ninja_table' => $tableId], home_url('/', 'relative'));
+            $this->printWooCartItemsOnce();
+        }
 
         if ($renderType === 'legacy_table') {
             // Apply the locked filter server-side so hidden rows never reach the browser.
@@ -374,6 +392,26 @@ class DataTablesRenderer extends AbstractTableRenderer
         wp_enqueue_style('datatables_responsive_css', $assets . 'libs/datatables/responsive.dataTables.min.css', ['datatables_core_css'], NINJA_TABLES_VERSION);
         Vite::enqueueStyle('ninjatables_dt_responsive_css', 'css/ninjatables-datatables-responsive.css', ['datatables_responsive_css', 'ninjatables_dt_css']);
         wp_enqueue_script('datatables_responsive_js', $assets . 'libs/datatables/dataTables.responsive.min.js', ['datatables_core_js'], NINJA_TABLES_VERSION, true);
+    }
+
+    /**
+     * The visitor's cart, read by Pro's cart bar. Once per page however many Woo tables
+     * render; skipped where WooCommerce has no cart (admin, REST, cron).
+     */
+    protected function printWooCartItemsOnce()
+    {
+        static $hooked = false;
+
+        if ($hooked) {
+            return;
+        }
+        $hooked = true;
+
+        add_action('wp_footer', function () {
+            if (function_exists('WC') && WC() && isset(WC()->cart) && WC()->cart) {
+                InlineScript::window('ninjaTableCartItems', WC()->cart->get_cart(), 'wp_footer', PHP_INT_MAX);
+            }
+        });
     }
 
     protected function rowsVaryByViewer($tableId)

@@ -65,7 +65,7 @@ class CartService
 
         ob_start();
         ?>
-        <div style="<?php echo esc_attr($style); ?>" class="<?php echo esc_attr($class);?> ninjatable_cart_wrapper fluent-cart woocommerce widget_shopping_cart">
+        <div style="<?php echo esc_attr($style); ?>" class="<?php echo esc_attr($class);?> ninjatable_cart_wrapper fluent-cart woocommerce widget_shopping_cart" data-table_id="<?php echo esc_attr((string)(int)$tableId); ?>">
             <div class="cart_details fct-cart-details">
                 <div class="nt_woo_items">
                     <span class="nt_fct_item_count"><?php echo esc_html($itemCount) . ' ' . esc_html($itemText); ?> </span>
@@ -113,6 +113,18 @@ class CartService
                 'item_id'  => intval(Arr::get($product, 'variation_id')),
             ], '');
         }
+    }
+
+    /** @return int[] variation ids in the visitor's cart */
+    public function cartVariationIds()
+    {
+        if (!defined('FLUENTCART_PLUGIN_PATH')) {
+            return [];
+        }
+
+        $cartItems = (array)Arr::get(CartHelper::getCart(), 'cart_data', []);
+
+        return array_values(array_unique(array_map('intval', array_column($cartItems, 'object_id'))));
     }
 
     public function totalAmount($cartItems)

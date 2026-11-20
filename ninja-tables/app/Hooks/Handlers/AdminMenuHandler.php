@@ -396,6 +396,9 @@ JS;
             'isInstalled'              => $isInstalled,
             'hasPro'                   => Pro::active(),
             'hasFluentForm'            => $hasFluentFrom,
+            'hasNinjaForms'            => function_exists('Ninja_Forms'), // the Ninja Forms entries source is listed only when it's active
+            'hasGravityForms'          => class_exists('GFAPI'), // the Gravity Forms entries source is listed only when it's active
+            'hasWPForms'               => function_exists('wpforms') && class_exists('WPForms_Entry_Handler'), // WPForms Pro only: Lite keeps no entries
             'hasTablePress'            => $hasTablePress,
             'hasSupsystic'             => $hasSupsystic,
             'maxUploadSize'            => size_format(wp_max_upload_size()), // shown next to the Excel import picker

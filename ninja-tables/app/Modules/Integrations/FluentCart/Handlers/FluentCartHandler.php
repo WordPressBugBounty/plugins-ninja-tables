@@ -387,4 +387,36 @@ class FluentCartHandler
         ]);
     }
 
+    /**
+     * Fresh cart bars for FluentCart tables on the page, after the cart changed
+     * outside the table (e.g. an item removed in FluentCart's drawer).
+     */
+    public function cartFragments()
+    {
+        $inputs = App::getInstance('request')->all();
+        $nonce  = sanitize_text_field(Arr::get($inputs, 'nonce', ''));
+        if (!wp_verify_nonce($nonce, 'ninja_table_public_nonce')) {
+            wp_send_json([
+                'message' => __('Invalid nonce', 'ninja-tables')
+            ], 403);
+        }
+
+        // A page holds a few tables at most
+        $tableIds = array_slice(array_unique(array_filter(array_map('intval', (array)Arr::get($inputs, 'table_ids', [])))), 0, 20);
+
+        $fragments = [];
+        foreach ($tableIds as $tableId) {
+            if (get_post_type($tableId) === 'ninja-table' && get_post_meta($tableId, '_ninja_tables_data_provider', true) === 'wp_fct') {
+                $fragments[$tableId] = (string)$this->cart->fragmentHtml($tableId);
+            }
+        }
+
+        wp_send_json([
+            'success'   => true,
+            'fragments' => (object)$fragments,
+            // Rows keep their "added" mark only while their variation is in the cart
+            'in_cart'   => $this->cart->cartVariationIds(),
+        ]);
+    }
+
 }

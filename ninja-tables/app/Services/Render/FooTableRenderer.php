@@ -314,6 +314,12 @@ class FooTableRenderer extends AbstractTableRenderer
             return count($this->proProviderRows('WPPostsProvider', $tableId));
         }
 
+        // Other providers (e.g. Pro's Ninja Forms entries) report their own row count
+        $size = apply_filters('ninja_tables_provider_total_size', null, $tableId, $provider);
+        if ($size !== null) {
+            return (int) $size;
+        }
+
         $query = NinjaTableItem::where('table_id', $tableId);
         $query = apply_filters('ninja_tables_total_size_query', $query, $table_vars);
 

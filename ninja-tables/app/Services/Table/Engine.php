@@ -39,7 +39,10 @@ class Engine
      */
     public static function supportsDataTables($tableId)
     {
-        $providers = (array) apply_filters('ninja_tables_dt_supported_providers', ['default', 'fluent-form', 'wp-posts', 'raw_sql', 'wp_fct']);
+        // wp_woo rows come from Pro's provider filter. Listing it here (not behind Pro's
+        // flag) keeps an existing DataTables Woo table rendering if Pro is downgraded;
+        // the Create drawer only offers DataTables when Pro reports woocommerce_table_dt.
+        $providers = (array) apply_filters('ninja_tables_dt_supported_providers', ['default', 'fluent-form', 'wp-posts', 'raw_sql', 'wp_fct', 'wp_woo']);
 
         return in_array(ninja_table_get_data_provider($tableId), $providers, true);
     }

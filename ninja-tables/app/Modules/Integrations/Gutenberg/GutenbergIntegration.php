@@ -75,12 +75,25 @@ class GutenbergIntegration extends BaseIntegration
 
     private function getAvailableTables()
     {
+        // Anyone who can write posts may insert a table, so they get the list of
+        // published tables. Other users get only the placeholder entry. The block
+        // checks every table ID before it builds a REST path, so the list is not
+        // what keeps the editor safe.
+        if (!current_user_can('edit_posts')) {
+            return array(
+                array(
+                    'label' => __('Select a Table', 'ninja-tables'),
+                    'value' => ''
+                )
+            );
+        }
+
         $args = array(
             'posts_per_page' => -1,
             'orderby'        => 'date',
             'order'          => 'DESC',
             'post_type'      => 'ninja-table',
-            'post_status'    => 'any'
+            'post_status'    => 'publish' // never list private, draft or trashed tables
         );
 
         $tables    = get_posts($args);
